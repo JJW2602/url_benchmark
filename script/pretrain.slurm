@@ -6,10 +6,11 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=72:00:00
-#SBATCH --array=0-3
+#SBATCH --array=0-269%30
 #SBATCH --output=logs_MIMDICE/%A_%a.out
 #SBATCH --error=logs_MIMDICE/%A_%a.err
 
+set -euo pipefail
 BASE_TMP=${SLURM_TMPDIR:-/tmp/$USER/$SLURM_JOB_ID}
 mkdir -p "$BASE_TMP"
 
@@ -18,58 +19,87 @@ export SINGULARITY_TMPDIR=${BASE_TMP}/sing_tmp_${SLURM_JOB_ID}_${SLURM_ARRAY_TAS
 mkdir -p "$SINGULARITY_CACHEDIR" "$SINGULARITY_TMPDIR"
 
 
-##### 하이퍼파라미터 조합 #####
-ALPHA_SCHEDULES=(
-  "'cosine(0.1,0.1,1_000_000)'"
-  "'linear(0.05,0.05,1_000_000)'"
-)
-EMA_BETA_SCHEDULES=(
-  "'cosine(0.001, 0.001, 1_000_000)'"
-  "'cosine(0.002, 0.002, 1_000_000)'"
-)
+##### JOB 조합 #####
+SEEDS=(1 2 3 4 5 6 7 8 9 10)
+DOMAINS=("walker" "quadruped" "jaco")
+AGENT_LABELS=("ICM" "ProtoRL" "DIAYN" "APT(ICM)" "APT(Ind)" "APS" "SMM" "RND" "Disagreement")
+AGENT_KEYS=(   "icm" "proto"  "diayn" "icm_apt"  "ind_apt"  "aps" "smm" "rnd" "disagreement")
+AGENT_DIRS=(   "ICM" "ProtoRL" "DIAYN" "APT-ICM" "APT-Ind"  "APS" "SMM" "RND" "Disagreement")
 
-NUM_ALPHA=${#ALPHA_SCHEDULES[@]}
-NUM_EMA=${#EMA_BETA_SCHEDULES[@]}
-IDX_ALPHA=$((SLURM_ARRAY_TASK_ID / NUM_EMA))
-IDX_EMA=$((SLURM_ARRAY_TASK_ID % NUM_EMA))
 
-ALPHA_SCH=${ALPHA_SCHEDULES[$IDX_ALPHA]}
-EMA_SCH=${EMA_BETA_SCHEDULES[$IDX_EMA]}
+S=${#SEEDS[@]}     # 10
+D=${#DOMAINS[@]}   # 3
+A=${#AGENTS[@]}    # 9
+TOTAL=$((S * D * A))
 
+if (( SLURM_ARRAY_TASK_ID >= TOTAL )); then
+  echo "TASK_ID ${SLURM_ARRAY_TASK_ID} is out of range (TOTAL=$TOTAL)"; exit 1; fi
+
+
+seed_idx=$(( SLURM_ARRAY_TASK_ID % S ))
+domain_idx=$(( (SLURM_ARRAY_TASK_ID / S) % D ))
+agent_idx=$(( SLURM_ARRAY_TASK_ID / (S * D) ))
+
+SEED=${SEEDS[$seed_idx]}
+DOMAIN=${DOMAINS[$domain_idx]}
+AGENT_LABEL=${AGENT_LABELS[$agent_idx]} 
+AGENT_KEY=${AGENT_KEYS[$agent_idx]}      
+AGENT_DIR=${AGENT_DIRS[$agent_idx]}      
+
+echo "JOB ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID} :: agent='${AGENT_LABEL}' (key=${AGENT_KEY}) domain='${DOMAIN}' seed=${SEED}"
 
 RUN_ID=${SLURM_ARRAY_TASK_ID}
 RUN_TAG="${SLURM_JOB_ID}_${RUN_ID}"
 SIF=/scratch2/yhkimm0/urlb_eglfixV2_fixed.sif
 export SINGULARITY_BIND="$HOME,$SCRATCH"
-
 echo "[${RUN_TAG}] alpha=${ALPHA_SCH} | ema=${EMA_SCH}"
 
-singularity exec --nv "$SIF" /bin/bash -c "
-  set -eo pipefail
-  eval \"\$(micromamba shell hook --shell bash)\"
+export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
+export MKL_NUM_THREADS=${SLURM_CPUS_PER_TASK}
+export WANDB_START_METHOD=thread
+export WANDB__SERVICE_WAIT=300
+export HYDRA_FULL_ERROR=1
+export PYTHONUNBUFFERED=1
+
+OBS_TYPE=states
+
+singularity exec --nv "$SIF" bash -s <<EOS
+set -eo pipefail
+
+export OMP_NUM_THREADS=${OMP_NUM_THREADS}
+export MKL_NUM_THREADS=${MKL_NUM_THREADS}
+export MUJOCO_GL=egl
+export MKL_SERVICE_FORCE_INTEL=1
+export WANDB_START_METHOD=${WANDB_START_METHOD}
+export WANDB__SERVICE_WAIT=${WANDB__SERVICE_WAIT}
+export HYDRA_FULL_ERROR=${HYDRA_FULL_ERROR}
+export PYTHONUNBUFFERED=${PYTHONUNBUFFERED}
+
+if command -v micromamba >/dev/null 2>&1; then
+  eval "\$(micromamba shell hook --shell bash)"
   micromamba activate urlb
-  cd url_benchmark
+elif command -v conda >/dev/null 2>&1; then
+  source "\$CONDA_PREFIX/etc/profile.d/conda.sh" 2>/dev/null || true
+  conda activate urlb || true
 
-  python pretrain.py \
-    agent=MIM_DICE \
-    domain=cartpole \
-    obs_type=states \
-    action_repeat=1 \
-    seed=${RUN_ID} \
-    agent.alpha_schedule=\\\"${ALPHA_SCH}\\\" \
-    agent.ema_beta_schedule=\\\"${EMA_SCH}\\\" \
-    snapshot_dir=\"../../../models/states/cartpole/MIM_DICE/${RUN_TAG}\" \
-    hydra.run.dir=\"./exp_local/\$(date +%Y.%m.%d)/\$(date +%H%M%S)_MIM_DICE_${RUN_ID}\" \
-    hydra.sweep.dir=\"./exp_sweep/\$(date +%Y.%m.%d)/\$(date +%H%M)_MIM_DICE_exp_${RUN_TAG}\" \
-    hydra.sweep.subdir=\"${RUN_TAG}\" \
-    hydra.launcher.submitit_folder=\"./exp_sweep/\$(date +%Y.%m.%d)/\$(date +%H%M)_MIM_DICE_exp_${RUN_TAG}/.slurm_${RUN_TAG}\"
-"
+cd \$HOME/url_benchmark
 
+mkdir -p outputs/${DOMAIN}/${AGENT_DIR}/${SEED}
+mkdir -p models/${OBS_TYPE}/${DOMAIN}/${AGENT_DIR}/${SEED}
+
+python pretrain.py \
+  seed="${SEED}" \
+  domain="${DOMAIN}" \
+  agent="${AGENT_KEY}" \
+  obs_type=${OBS_TYPE} \
+  action_repeat=1 \
+  obs_type=states \
+  action_repeat=1 \
+  snapshot_dir= "./models/${OBS_TYPE}/${DOMAIN}/${AGENT_DIR}/${SEED} \
+  hydra.run.dir="outputs/${DOMAIN}/${AGENT_DIR}/${SEED}"
+EOS
 
 echo "=========== seff & dmesg ==========="
 seff $SLURM_JOB_ID 2>/dev/null || true
-
 dmesg | egrep -i "oom|Out of memory|BUS error|bad page" | tail -n 100 || true
-echo "===================================="
-
-#singularity shell --nv urlb_eglfixV2_fixed.sif 
+echo "====================================" 

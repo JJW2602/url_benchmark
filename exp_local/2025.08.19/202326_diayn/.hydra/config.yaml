@@ -1,0 +1,53 @@
+agent:
+  _target_: agent.diayn.DIAYNAgent
+  name: diayn
+  reward_free: ${reward_free}
+  obs_type: ???
+  obs_shape: ???
+  action_shape: ???
+  device: ${device}
+  lr: 0.0001
+  critic_target_tau: 0.01
+  update_every_steps: 2
+  use_tb: ${use_tb}
+  use_wandb: ${use_wandb}
+  num_expl_steps: ???
+  hidden_dim: 1024
+  feature_dim: 50
+  stddev_schedule: 0.2
+  stddev_clip: 0.3
+  skill_dim: 16
+  diayn_scale: 1.0
+  update_skill_every_step: 50
+  nstep: 3
+  batch_size: 1024
+  init_critic: true
+  update_encoder: ${update_encoder}
+reward_free: true
+domain: walker
+obs_type: states
+frame_stack: 3
+action_repeat: 1
+discount: 0.99
+num_train_frames: 2000010
+num_seed_frames: 4000
+eval_every_frames: 10000
+num_eval_episodes: 10
+snapshots:
+- 100000
+- 500000
+- 1000000
+- 2000000
+snapshot_dir: ../../../models/${obs_type}/${domain}/${agent.name}/${seed}
+replay_buffer_size: 1000000
+replay_buffer_num_workers: 4
+batch_size: ${agent.batch_size}
+nstep: ${agent.nstep}
+update_encoder: true
+seed: 1
+device: cuda
+save_video: true
+save_train_video: false
+use_tb: false
+use_wandb: false
+experiment: exp

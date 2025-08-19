@@ -1,5 +1,5 @@
 import warnings
-
+from tqdm import tqdm
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
 import os
@@ -101,7 +101,19 @@ class Workspace:
         self.timer = utils.Timer()
         self._global_step = 0
         self._global_episode = 0
-
+        self.total_train_steps = self.cfg.num_train_frames // self.cfg.action_repeat
+        self.pbar = tqdm(
+            total=self.total_train_steps,
+            desc="train",
+            unit="step",
+            dynamic_ncols=True,
+            ascii=True,
+            mininterval=0.5,
+            smoothing=0.1,
+            disable=bool(int(os.environ.get('DISABLE_TQDM', '0'))) 
+        )
+        self.eval_calls = 0
+        self.total_eval_episodes_run = 0
     @property
     def global_step(self):
         return self._global_step
@@ -141,11 +153,26 @@ class Workspace:
             episode += 1
             self.video_recorder.save(f'{self.global_frame}.mp4')
 
+        avg_return = total_reward / episode
+        avg_length = step * self.cfg.action_repeat / episode
+
         with self.logger.log_and_dump_ctx(self.global_frame, ty='eval') as log:
             log('episode_reward', total_reward / episode)
             log('episode_length', step * self.cfg.action_repeat / episode)
             log('episode', self.global_episode)
             log('step', self.global_step)
+        
+        if self.cfg.use_wandb:
+            wandb.log({
+                'eval/episode_reward': float(avg_return),
+                'eval/episode_length': float(avg_length),
+                'eval/episode': int(self.global_episode),
+                'eval/step': int(self.global_step),
+                'global_frame': int(self.global_frame)
+            }, step=self.global_frame)
+        
+        self.eval_calls += 1
+        self.total_eval_episodes_run += episode
 
     def train(self):
         # predicates
@@ -218,6 +245,16 @@ class Workspace:
             self.train_video_recorder.record(time_step.observation)
             episode_step += 1
             self._global_step += 1
+
+            self.pbar.update(1)
+            self.pbar.set_postfix(ep=self._global_episode,
+                                  ep_reward=float(episode_reward))
+        self.pbar.close()
+        if self.cfg.use_wandb:
+            wandb.summary["total_train_steps"] = int(self.global_step)
+            wandb.summary["total_train_episodes"] = int(self.global_episode)
+            wandb.summary["total_eval_calls"] = int(self.eval_calls)
+            wandb.summary["total_eval_episodes"] = int(self.total_eval_episodes_run)
 
     def save_snapshot(self):
         snapshot_dir = self.work_dir / Path(self.cfg.snapshot_dir)
