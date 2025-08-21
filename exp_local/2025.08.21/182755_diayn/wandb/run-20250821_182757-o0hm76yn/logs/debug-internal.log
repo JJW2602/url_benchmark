@@ -1,0 +1,63 @@
+2025-08-21 18:27:58,124 INFO    MainThread:2190586 [internal.py:wandb_internal():88] W&B internal server running at pid: 2190586, started at: 2025-08-21 18:27:58.123320
+2025-08-21 18:27:58,125 INFO    WriterThread:2190586 [datastore.py:open_for_write():80] open: /home/james2602/URLB/url_benchmark/exp_local/2025.08.21/182755_diayn/wandb/run-20250821_182757-o0hm76yn/run-o0hm76yn.wandb
+2025-08-21 18:27:58,125 DEBUG   HandlerThread:2190586 [handler.py:handle_request():124] handle_request: check_version
+2025-08-21 18:27:58,462 DEBUG   SenderThread:2190586 [sender.py:send():179] send: header
+2025-08-21 18:27:58,462 DEBUG   SenderThread:2190586 [sender.py:send_request():193] send_request: check_version
+2025-08-21 18:27:58,503 DEBUG   SenderThread:2190586 [sender.py:send():179] send: run
+2025-08-21 18:27:58,810 INFO    SenderThread:2190586 [dir_watcher.py:__init__():168] watching files in: /home/james2602/URLB/url_benchmark/exp_local/2025.08.21/182755_diayn/wandb/run-20250821_182757-o0hm76yn/files
+2025-08-21 18:27:58,810 INFO    SenderThread:2190586 [sender.py:_start_run_threads():716] run started: o0hm76yn with start time 1755768477
+2025-08-21 18:27:58,810 DEBUG   SenderThread:2190586 [sender.py:send():179] send: summary
+2025-08-21 18:27:58,811 DEBUG   HandlerThread:2190586 [handler.py:handle_request():124] handle_request: run_start
+2025-08-21 18:27:58,813 INFO    SenderThread:2190586 [sender.py:_save_file():841] saving file wandb-summary.json with policy end
+2025-08-21 18:27:58,832 DEBUG   HandlerThread:2190586 [meta.py:__init__():34] meta init
+2025-08-21 18:27:58,832 DEBUG   HandlerThread:2190586 [meta.py:__init__():48] meta init done
+2025-08-21 18:27:58,832 DEBUG   HandlerThread:2190586 [meta.py:probe():205] probe
+2025-08-21 18:27:58,838 DEBUG   HandlerThread:2190586 [meta.py:_setup_git():195] setup git
+2025-08-21 18:27:58,858 DEBUG   HandlerThread:2190586 [meta.py:_setup_git():202] setup git done
+2025-08-21 18:27:58,858 DEBUG   HandlerThread:2190586 [meta.py:_save_pip():52] save pip
+2025-08-21 18:27:58,860 DEBUG   HandlerThread:2190586 [meta.py:_save_pip():66] save pip done
+2025-08-21 18:27:58,860 DEBUG   HandlerThread:2190586 [meta.py:_save_conda():73] save conda
+2025-08-21 18:28:01,063 DEBUG   HandlerThread:2190586 [meta.py:_save_conda():81] save conda done
+2025-08-21 18:28:01,063 DEBUG   HandlerThread:2190586 [meta.py:probe():247] probe done
+2025-08-21 18:28:01,145 DEBUG   SenderThread:2190586 [sender.py:send():179] send: files
+2025-08-21 18:28:01,145 INFO    SenderThread:2190586 [sender.py:_save_file():841] saving file wandb-metadata.json with policy now
+2025-08-21 18:28:01,149 DEBUG   HandlerThread:2190586 [handler.py:handle_request():124] handle_request: stop_status
+2025-08-21 18:28:01,149 DEBUG   SenderThread:2190586 [sender.py:send_request():193] send_request: stop_status
+2025-08-21 18:28:01,739 INFO    Thread-11 :2190586 [upload_job.py:push():137] Uploaded file /tmp/tmpsou5xfbowandb/nidjounm-wandb-metadata.json
+2025-08-21 18:28:01,813 INFO    Thread-8  :2190586 [dir_watcher.py:_on_file_created():216] file/dir created: /home/james2602/URLB/url_benchmark/exp_local/2025.08.21/182755_diayn/wandb/run-20250821_182757-o0hm76yn/files/conda-environment.yaml
+2025-08-21 18:28:01,814 INFO    Thread-8  :2190586 [dir_watcher.py:_on_file_created():216] file/dir created: /home/james2602/URLB/url_benchmark/exp_local/2025.08.21/182755_diayn/wandb/run-20250821_182757-o0hm76yn/files/output.log
+2025-08-21 18:28:01,814 INFO    Thread-8  :2190586 [dir_watcher.py:_on_file_created():216] file/dir created: /home/james2602/URLB/url_benchmark/exp_local/2025.08.21/182755_diayn/wandb/run-20250821_182757-o0hm76yn/files/wandb-summary.json
+2025-08-21 18:28:01,814 INFO    Thread-8  :2190586 [dir_watcher.py:_on_file_created():216] file/dir created: /home/james2602/URLB/url_benchmark/exp_local/2025.08.21/182755_diayn/wandb/run-20250821_182757-o0hm76yn/files/wandb-metadata.json
+2025-08-21 18:28:01,814 INFO    Thread-8  :2190586 [dir_watcher.py:_on_file_created():216] file/dir created: /home/james2602/URLB/url_benchmark/exp_local/2025.08.21/182755_diayn/wandb/run-20250821_182757-o0hm76yn/files/requirements.txt
+2025-08-21 18:28:16,453 DEBUG   HandlerThread:2190586 [handler.py:handle_request():124] handle_request: stop_status
+2025-08-21 18:28:16,453 DEBUG   SenderThread:2190586 [sender.py:send_request():193] send_request: stop_status
+2025-08-21 18:28:27,188 DEBUG   SenderThread:2190586 [sender.py:send():179] send: stats
+2025-08-21 18:28:32,040 DEBUG   HandlerThread:2190586 [handler.py:handle_request():124] handle_request: stop_status
+2025-08-21 18:28:32,040 DEBUG   SenderThread:2190586 [sender.py:send_request():193] send_request: stop_status
+2025-08-21 18:28:47,680 DEBUG   HandlerThread:2190586 [handler.py:handle_request():124] handle_request: stop_status
+2025-08-21 18:28:47,680 DEBUG   SenderThread:2190586 [sender.py:send_request():193] send_request: stop_status
+2025-08-21 18:28:57,543 DEBUG   SenderThread:2190586 [sender.py:send():179] send: stats
+2025-08-21 18:29:03,235 DEBUG   HandlerThread:2190586 [handler.py:handle_request():124] handle_request: stop_status
+2025-08-21 18:29:03,235 DEBUG   SenderThread:2190586 [sender.py:send_request():193] send_request: stop_status
+2025-08-21 18:29:18,654 DEBUG   HandlerThread:2190586 [handler.py:handle_request():124] handle_request: stop_status
+2025-08-21 18:29:18,654 DEBUG   SenderThread:2190586 [sender.py:send_request():193] send_request: stop_status
+2025-08-21 18:29:27,895 DEBUG   SenderThread:2190586 [sender.py:send():179] send: stats
+2025-08-21 18:29:34,248 DEBUG   HandlerThread:2190586 [handler.py:handle_request():124] handle_request: stop_status
+2025-08-21 18:29:34,249 DEBUG   SenderThread:2190586 [sender.py:send_request():193] send_request: stop_status
+2025-08-21 18:29:49,624 DEBUG   HandlerThread:2190586 [handler.py:handle_request():124] handle_request: stop_status
+2025-08-21 18:29:49,624 DEBUG   SenderThread:2190586 [sender.py:send_request():193] send_request: stop_status
+2025-08-21 18:29:58,242 DEBUG   SenderThread:2190586 [sender.py:send():179] send: stats
+2025-08-21 18:30:05,120 DEBUG   HandlerThread:2190586 [handler.py:handle_request():124] handle_request: stop_status
+2025-08-21 18:30:05,120 DEBUG   SenderThread:2190586 [sender.py:send_request():193] send_request: stop_status
+2025-08-21 18:30:20,720 DEBUG   HandlerThread:2190586 [handler.py:handle_request():124] handle_request: stop_status
+2025-08-21 18:30:20,720 DEBUG   SenderThread:2190586 [sender.py:send_request():193] send_request: stop_status
+2025-08-21 18:30:28,592 DEBUG   SenderThread:2190586 [sender.py:send():179] send: stats
+2025-08-21 18:30:36,194 DEBUG   HandlerThread:2190586 [handler.py:handle_request():124] handle_request: stop_status
+2025-08-21 18:30:36,194 DEBUG   SenderThread:2190586 [sender.py:send_request():193] send_request: stop_status
+2025-08-21 18:30:51,758 DEBUG   HandlerThread:2190586 [handler.py:handle_request():124] handle_request: stop_status
+2025-08-21 18:30:51,758 DEBUG   SenderThread:2190586 [sender.py:send_request():193] send_request: stop_status
+2025-08-21 18:30:58,944 DEBUG   SenderThread:2190586 [sender.py:send():179] send: stats
+2025-08-21 18:31:07,104 DEBUG   HandlerThread:2190586 [handler.py:handle_request():124] handle_request: stop_status
+2025-08-21 18:31:07,104 DEBUG   SenderThread:2190586 [sender.py:send_request():193] send_request: stop_status
+2025-08-21 18:31:23,044 DEBUG   HandlerThread:2190586 [handler.py:handle_request():124] handle_request: stop_status
+2025-08-21 18:31:23,044 DEBUG   SenderThread:2190586 [sender.py:send_request():193] send_request: stop_status

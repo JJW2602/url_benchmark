@@ -7,8 +7,8 @@
 #SBATCH --mem=32G
 #SBATCH --time=72:00:00
 #SBATCH --array=0-269%30
-#SBATCH --output=logs_MIMDICE/%A/%A_%a.out
-#SBATCH --error=logs_MIMDICE/%A/%A_%a.err
+#SBATCH --output=logs_MIMDICE_fine/%A/%A_%a.out
+#SBATCH --error=logs_MIMDICE_fine/%A/%A_%a.err
 
 set -euo pipefail
 BASE_TMP=${SLURM_TMPDIR:-/tmp/$USER/$SLURM_JOB_ID}
@@ -25,7 +25,7 @@ DOMAINS=("walker" "quadruped" "jaco")
 AGENT_LABELS=("ICM" "ProtoRL" "DIAYN" "APT(ICM)" "APT(Ind)" "APS" "SMM" "RND" "Disagreement")
 AGENT_KEYS=(   "icm" "proto"  "diayn" "icm_apt"  "ind_apt"  "aps" "smm" "rnd" "disagreement")
 AGENT_DIRS=(   "ICM" "ProtoRL" "DIAYN" "APT-ICM" "APT-Ind"  "APS" "SMM" "RND" "Disagreement")
-
+TASK_DIRS=("walker_stand" "walker_walk" "walker_run" "walker_flip" "quadruped_walk" "quadruped_run" "quadruped_stand" "quadruped_jump" "jaco_reach_top_left" "jaco_reach_top_right" "jaco_reach_bottom_left" "jaco_reach_bottom_right") 
 
 S=${#SEEDS[@]}     # 10
 D=${#DOMAINS[@]}   # 3
