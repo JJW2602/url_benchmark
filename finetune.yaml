@@ -38,7 +38,7 @@ experiment: exp
 
 hydra:
   run:
-    dir: ./urlb_finetune/${domain}/${agent.name}/seed_${seed}
+    dir: ./outputs_finetune/${domain}/${agent.name}/seed_${seed}
   sweep:
     dir: ./exp_sweep/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${experiment}
     subdir: ${hydra.job.num}

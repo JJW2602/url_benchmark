@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=72:00:00
-#SBATCH --array=0-269%30
+#SBATCH --array=0-269%90
 #SBATCH --output=logs_baseline_pretrain/%A/%A_%a.out
 #SBATCH --error=logs_baseline_pretrain/%A/%A_%a.err
 
@@ -24,17 +24,17 @@ AGENT_DIRS=(   "ICM" "ProtoRL" "DIAYN" "APT-ICM" "APT-Ind"  "APS" "SMM" "RND" "D
 
 
 S=${#SEEDS[@]}            # 10
-D=${#DOMAINS[@]}          # 3
 A=${#AGENT_LABELS[@]}     # 9
-TOTAL=$((S * D * A))
+D=${#DOMAINS[@]}          # 3
+TOTAL=$((S * A * D))
 
 if (( SLURM_ARRAY_TASK_ID >= TOTAL )); then
   echo "TASK_ID ${SLURM_ARRAY_TASK_ID} is out of range (TOTAL=$TOTAL)"; exit 1; fi
 
 
 seed_idx=$(( SLURM_ARRAY_TASK_ID % S ))
-domain_idx=$(( (SLURM_ARRAY_TASK_ID / S) % D ))
-agent_idx=$(( SLURM_ARRAY_TASK_ID / (S * D) ))
+agent_idx=$(( (SLURM_ARRAY_TASK_ID / S) % A ))
+domain_idx=$(( SLURM_ARRAY_TASK_ID / (S * A) ))
 
 SEED=${SEEDS[$seed_idx]}
 DOMAIN=${DOMAINS[$domain_idx]}
@@ -47,9 +47,9 @@ echo "JOB ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID} :: agent_label='${AGENT_L
 
 
 ##### Logging directories #####
-LOG_BASE="outputs_pretrain"
-LOG_DIR="${LOG_BASE}/${DOMAIN}/${AGENT_DIR}/seed_${SEED}/logs"
-mkdir -p "$LOG_DIR"
+LOG_BASE="outputs_pretrain/${DOMAIN}/${AGENT_DIR}/seed_${SEED}"
+LOG_DIR="${LOG_BASE}/logs"
+#mkdir -p "$LOG_DIR"
 
 OUT="${LOG_DIR}/job${SLURM_JOB_ID}_task${SLURM_ARRAY_TASK_ID}.out"
 ERR="${LOG_DIR}/job${SLURM_JOB_ID}_task${SLURM_ARRAY_TASK_ID}.err"
@@ -98,7 +98,7 @@ python pretrain.py \
   action_repeat=1 \
   use_wandb=True \
   snapshot_dir="snapshot" \
-  hydra.run.dir="outputs_pretrian/${DOMAIN}/${AGENT_DIR}/seed_${SEED}"
+  hydra.run.dir="${LOG_BASE}"
 
 echo "=========== seff & dmesg ==========="
 seff $SLURM_JOB_ID 2>/dev/null || true
