@@ -44,7 +44,7 @@ class Workspace:
 
         if cfg.use_wandb:
             exp_name = '_'.join([
-                cfg.experiment, cfg.agent.name, cfg.task, cfg.obs_type, str(cfg.snapshot_ts),
+                cfg.experiment, cfg.task, cfg.agent.name, cfg.obs_type, str(cfg.snapshot_ts),
                 str(cfg.seed), 
             ])
             wandb.init(project="urlb_finetuning", group=cfg.agent.name, name=exp_name)
@@ -270,7 +270,7 @@ class Workspace:
     def load_snapshot(self):
         snapshot_base_dir = Path(self.cfg.snapshot_base_dir)
         domain, _ = self.cfg.task.split('_', 1)
-        snapshot_dir = snapshot_base_dir / self.cfg.obs_type / domain / self.cfg.agent.name
+        snapshot_dir = snapshot_base_dir / self.cfg.obs_type / domain / self.cfg.agent.name / self.cfg.seed
 
         def try_load(seed):
             snapshot = snapshot_dir / str(

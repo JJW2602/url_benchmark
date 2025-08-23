@@ -46,10 +46,10 @@ class Workspace:
         # create logger
         if cfg.use_wandb:
             exp_name = '_'.join([
-                cfg.experiment, cfg.agent.name, cfg.domain, cfg.obs_type,
+                cfg.experiment, cfg.domain, cfg.agent.name, cfg.obs_type,
                 str(cfg.seed)
             ])
-            wandb.init(project="urlb", group=cfg.agent.name, name=exp_name)
+            wandb.init(project="urlb_pretrain_sbatch", group=cfg.agent.name, name=exp_name)
 
         self.logger = Logger(self.work_dir,
                              use_tb=cfg.use_tb,
@@ -89,12 +89,14 @@ class Workspace:
         self._replay_iter = None
 
         # create video recorders
+        self.video_dir = self.work_dir
+
         self.video_recorder = VideoRecorder(
-            self.work_dir if cfg.save_video else None,
+            self.video_dir if cfg.save_video else None,
             camera_id=0 if 'quadruped' not in self.cfg.domain else 2,
             use_wandb=self.cfg.use_wandb)
         self.train_video_recorder = TrainVideoRecorder(
-            self.work_dir if cfg.save_train_video else None,
+            self.video_dir if cfg.save_train_video else None,
             camera_id=0 if 'quadruped' not in self.cfg.domain else 2,
             use_wandb=self.cfg.use_wandb)
 
@@ -151,16 +153,11 @@ class Workspace:
                 step += 1
 
             episode += 1
-            self.video_recorder.save(f'{self.global_frame}.mp4')
+            vid_path = self.work_dir / "eval_video" / f"{self.global_frame}.mp4"
+            self.video_recorder.save(vid_path)
 
         avg_return = total_reward / episode
         avg_length = step * self.cfg.action_repeat / episode
-
-        with self.logger.log_and_dump_ctx(self.global_frame, ty='eval') as log:
-            log('episode_reward', total_reward / episode)
-            log('episode_length', step * self.cfg.action_repeat / episode)
-            log('episode', self.global_episode)
-            log('step', self.global_step)
         
         if self.cfg.use_wandb:
             wandb.log({
@@ -170,7 +167,7 @@ class Workspace:
                 'eval/step': int(self.global_step),
                 'global_frame': int(self.global_frame)
             }, step=self.global_frame)
-        
+
         self.eval_calls += 1
         self.total_eval_episodes_run += episode
 
@@ -268,6 +265,7 @@ class Workspace:
 
 @hydra.main(config_path='.', config_name='pretrain')
 def main(cfg):
+    print(f'domain= {cfg.domain}, agent= {cfg.agent.name}, seed= {cfg.seed}')
     from pretrain import Workspace as W
     root_dir = Path.cwd()
     workspace = W(cfg)

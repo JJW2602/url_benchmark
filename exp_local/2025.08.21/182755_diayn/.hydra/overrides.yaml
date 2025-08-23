@@ -1,6 +1,0 @@
-- agent=diayn
-- task=walker_run
-- snapshot_ts=1000000
-- obs_type=states
-- reward_free=false
-- use_wandb=True

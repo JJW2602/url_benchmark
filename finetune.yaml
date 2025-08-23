@@ -14,11 +14,11 @@ discount: 0.99
 num_train_frames: 100010
 num_seed_frames: 4000
 # eval
-eval_every_frames: 10000
+eval_every_frames: 1000
 num_eval_episodes: 10
 # pretrained
 snapshot_ts: 100000
-snapshot_base_dir: home/james2602/URLB/url_benchmark/models
+snapshot_base_dir: home/james2602/URLB/url_benchmark/snapshot
 # replay buffer
 replay_buffer_size: 1000000
 replay_buffer_num_workers: 4
@@ -38,7 +38,7 @@ experiment: exp
 
 hydra:
   run:
-    dir: ./exp_local/${now:%Y.%m.%d}/${now:%H%M%S}_${agent.name}
+    dir: ./urlb_finetune/${domain}/${agent.name}/seed_${seed}
   sweep:
     dir: ./exp_sweep/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${experiment}
     subdir: ${hydra.job.num}
