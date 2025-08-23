@@ -49,7 +49,7 @@ echo "JOB ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID} :: agent_label='${AGENT_L
 ##### Logging directories #####
 LOG_BASE="outputs_pretrain/${DOMAIN}/${AGENT_DIR}/seed_${SEED}"
 LOG_DIR="${LOG_BASE}/logs"
-#mkdir -p "$LOG_DIR"
+mkdir -p "$LOG_DIR"
 
 OUT="${LOG_DIR}/job${SLURM_JOB_ID}_task${SLURM_ARRAY_TASK_ID}.out"
 ERR="${LOG_DIR}/job${SLURM_JOB_ID}_task${SLURM_ARRAY_TASK_ID}.err"
