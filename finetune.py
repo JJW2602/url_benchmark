@@ -41,13 +41,14 @@ class Workspace:
         self.cfg = cfg
         utils.set_seed_everywhere(cfg.seed)
         self.device = torch.device(cfg.device)
-
+        self.domain, _ = self.cfg.task.split('_', 1)
+        
         if cfg.use_wandb:
             exp_name = '_'.join([
                 cfg.experiment, cfg.task, cfg.agent.name, cfg.obs_type, str(cfg.snapshot_ts),
                 str(cfg.seed), 
             ])
-            wandb.init(project="urlb_finetuning", group=cfg.agent.name, name=exp_name)
+            wandb.init(project="urlb_finetuning_test", group=cfg.agent.name, name=exp_name)
 
         # create logger
         self.logger = Logger(self.work_dir,
@@ -91,15 +92,16 @@ class Workspace:
                                                 cfg.replay_buffer_num_workers,
                                                 False, cfg.nstep, cfg.discount)
         self._replay_iter = None
+        
 
         # create video recorders
         self.video_recorder = VideoRecorder(
             self.work_dir if cfg.save_video else None,
-            camera_id=0 if 'quadruped' not in self.cfg.domain else 2,
+            camera_id=0 if 'quadruped' not in self.domain else 2,
             use_wandb=self.cfg.use_wandb)
         self.train_video_recorder = TrainVideoRecorder(
             self.work_dir if cfg.save_train_video else None,
-            camera_id=0 if 'quadruped' not in self.cfg.domain else 2,
+            camera_id=0 if 'quadruped' not in self.domain else 2,
             use_wandb=self.cfg.use_wandb)
 
         self.timer = utils.Timer()
@@ -161,12 +163,6 @@ class Workspace:
         avg_return = total_reward / episode
         avg_length = step * self.cfg.action_repeat / episode
 
-        with self.logger.log_and_dump_ctx(self.global_frame, ty='eval') as log:
-            log('episode_reward', total_reward / episode)
-            log('episode_length', step * self.cfg.action_repeat / episode)
-            log('episode', self.global_episode)
-            log('step', self.global_step)
-
         if self.cfg.use_wandb:
             wandb.log({
                 'eval/episode_reward': float(avg_return),
@@ -175,6 +171,9 @@ class Workspace:
                 'eval/step': int(self.global_step),
                 'global_frame': int(self.global_frame)
             }, step=self.global_frame)
+
+        self.eval_calls += 1
+        self.total_eval_episodes_run += episode
 
     def train(self):
         # predicates
@@ -269,12 +268,10 @@ class Workspace:
 
     def load_snapshot(self):
         snapshot_base_dir = Path(self.cfg.snapshot_base_dir)
-        domain, _ = self.cfg.task.split('_', 1)
-        snapshot_dir = snapshot_base_dir / self.cfg.obs_type / domain / self.cfg.agent.name / self.cfg.seed
+        snapshot_dir = snapshot_base_dir / self.domain / self.cfg.agent.name
 
         def try_load(seed):
-            snapshot = snapshot_dir / str(
-                seed) / f'snapshot_{self.cfg.snapshot_ts}.pt'
+            snapshot = snapshot_dir / f'seed_{seed}' / 'snapshot' / f'snapshot_{self.cfg.snapshot_ts}.pt'
             if not snapshot.exists():
                 return None
             with snapshot.open('rb') as f:

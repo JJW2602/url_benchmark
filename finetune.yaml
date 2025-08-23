@@ -18,7 +18,9 @@ eval_every_frames: 1000
 num_eval_episodes: 10
 # pretrained
 snapshot_ts: 100000
-snapshot_base_dir: home/james2602/URLB/url_benchmark/snapshot
+snapshot_base_dir: /home/james2602/URLB/url_benchmark/snapshot_test
+#snapshot_test_dir : /home/james2602/URLB/url_benchmark/snapshot_test
+#snapshot_base_dir: /home/james2602/URLB/url_benchmark/outputs_pretrain
 # replay buffer
 replay_buffer_size: 1000000
 replay_buffer_num_workers: 4
@@ -38,7 +40,7 @@ experiment: exp
 
 hydra:
   run:
-    dir: ./outputs_finetune/${domain}/${agent.name}/seed_${seed}
+    dir: ./outputs_finetune/${task}/${agent.name}/seed_${seed}
   sweep:
     dir: ./exp_sweep/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${experiment}
     subdir: ${hydra.job.num}
