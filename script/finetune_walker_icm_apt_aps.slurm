@@ -1,14 +1,14 @@
 #!/bin/bash
 #SBATCH --job-name=URLB
-#SBATCH --partition=big_suma_rtx3090
-#SBATCH --qos=big_qos
+#SBATCH --partition=base_suma_rtx3090
+#SBATCH --qos=base_qos
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=72:00:00
-#SBATCH --array=0-971%81
-#SBATCH --output=logs_baseline_pretrain/%A/%A_%a.out
-#SBATCH --error=logs_baseline_pretrain/%A/%A_%a.err
+#SBATCH --array=0-719%30
+#SBATCH --output=/scratch2/james2602/URLB/logs_baseline_finetune/%A/%A_%a.out
+#SBATCH --error=/scratch2/james2602/URLB/logs_baseline_finetune/%A/%A_%a.err
 
 set -euo pipefail
 BASE_TMP=${SLURM_TMPDIR:-/tmp/$USER/$SLURM_JOB_ID}
@@ -16,36 +16,37 @@ mkdir -p "$BASE_TMP"
 
 
 ##### Job settings #####
-SEED=1
-SNAPSHOT=(100000 300000 500000 700000 1000000 1200000 1500000 1800000 2000000)
-AGENT_LABELS=(   "icm" "proto"  "diayn" "icm_apt"  "ind_apt"  "aps" "smm" "rnd" "disagreement")
-AGENT_KEYS=(   "icm" "proto"  "diayn" "icm_apt"  "ind_apt"  "aps" "smm" "rnd" "disagreement")
-AGENT_DIRS=(   "icm" "proto"  "diayn" "icm_apt"  "ind_apt"  "aps" "smm" "rnd" "disagreement")
-TASKS=("walker_stand" "walker_walk" "walker_run" "walker_flip" "quadruped_walk" "quadruped_run" "quadruped_stand" "quadruped_jump" "jaco_reach_top_left" "jaco_reach_top_right" "jaco_reach_bottom_left" "jaco_reach_bottom_right")
+SEEDS=(1 2 3 4 5 6 7 8 9 10)
+SNAPSHOTS=(100000 300000 500000 700000 1000000 1200000 1500000 1800000 2000000)
+AGENTS=( "icm_apt" "aps")
+TASKS=("walker_stand" "walker_walk" "walker_run" "walker_flip")
 
-S=${#SNAPSHOT[@]}         # 9
-A=${#AGENTS[@]}           # 9
-T=${#TASKS[@]}            # 12
-TOTAL=$((S * A * T))
+S=${#SEEDS[@]}            # 10
+N=${#SNAPSHOTS[@]}         # 9
+A=${#AGENTS[@]}           # 2
+T=${#TASKS[@]}            # 4
+TOTAL=$((S * N *  A * T))
 
 if (( SLURM_ARRAY_TASK_ID >= TOTAL )); then
   echo "TASK_ID ${SLURM_ARRAY_TASK_ID} is out of range (TOTAL=$TOTAL)"; exit 1; fi
 
 
-snapshot_idx=$(( SLURM_ARRAY_TASK_ID % S ))
-task_idx=$(( (SLURM_ARRAY_TASK_ID / S) % A ))
-agent_idx=$(( SLURM_ARRAY_TASK_ID / (S * A) ))
+seed_idx=$(( SLURM_ARRAY_TASK_ID % S ))
+snapshot_idx=$(((SLURM_ARRAY_TASK_ID / S) % N ))
+agent_idx=$(((SLURM_ARRAY_TASK_ID / (S * N)) % A ))
+task_idx=$(((SLURM_ARRAY_TASK_ID / (S * N * A)) % T))
 
-SNAPSHOT=${SNAPSHOTS[$seed_idx]}
+SEED=${SEEDS[$seed_idx]}
+SNAPSHOT=${SNAPSHOTS[$snapshot_idx]}
 TASK=${TASKS[$task_idx]}
 AGENT=${AGENTS[$agent_idx]} 
 
 
-echo "JOB ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID} :: agent='${AGENT}' 'key=${AGENT}' task='${TASK}' snapshot=${SNAPSHOT} seed=${SEED}"
+echo "JOB ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID} :: agent='${AGENT}' key='${AGENT}' task='${TASK}' snapshot=${SNAPSHOT} seed=${SEED}"
 
 
 ##### Logging directories #####
-LOG_BASE="logs_baseline_finetune/${TASK}/${AGENT}/snapshot_${SNAPSHOT}/seed_${SEED}"
+LOG_BASE="/scratch2/james2602/URLB/outputs_finetune/${TASK}/${AGENT}/snapshot_${SNAPSHOT}/seed_${SEED}"
 LOG_DIR="${LOG_BASE}/logs"
 mkdir -p "$LOG_DIR"
 
@@ -93,10 +94,11 @@ python finetune.py \
   agent=${AGENT} \
   snapshot_ts=${SNAPSHOT} \
   obs_type=${OBS_TYPE} \
-  reward_free=false \ 
+  reward_free=false \
   action_repeat=1 \
-  use_wandb=True \
-  snapshot_base_dir="/home/james2602/URLB/url_benchmark/outputs_pretrain" \
+  use_wandb=true \
+  wandb_project="urlb_finetuning_walker_icm_diayn" \
+  snapshot_base_dir="/scratch2/james2602/URLB/outputs_pretrain" \
   hydra.run.dir="${LOG_BASE}"
 
 echo "=========== seff & dmesg ==========="

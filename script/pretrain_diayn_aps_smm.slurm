@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=URLB
-#SBATCH --partition=big_suma_rtx3090
-#SBATCH --qos=big_qos
+#SBATCH --partition=suma_rtx4090
+#SBATCH --qos=base_qos
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G

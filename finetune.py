@@ -48,7 +48,7 @@ class Workspace:
                 cfg.experiment, cfg.task, cfg.agent.name, cfg.obs_type, str(cfg.snapshot_ts),
                 str(cfg.seed), 
             ])
-            wandb.init(project="urlb_finetuning_walker_icm_diayn", group=cfg.agent.name, name=exp_name)
+            wandb.init(project=cfg.wandb_project, group=cfg.agent.name, name=exp_name)
 
         # create logger
         self.logger = Logger(self.work_dir,

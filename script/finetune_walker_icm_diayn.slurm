@@ -1,14 +1,14 @@
 #!/bin/bash
 #SBATCH --job-name=URLB
-#SBATCH --partition=suma_rtx4090
+#SBATCH --partition=base_suma_rtx3090
 #SBATCH --qos=base_qos
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=72:00:00
 #SBATCH --array=0-719%30
-#SBATCH --output=logs_baseline_finetune/%A/%A_%a.out
-#SBATCH --error=logs_baseline_finetune/%A/%A_%a.err
+#SBATCH --output=/scratch2/james2602/URLB/logs_baseline_finetune/%A/%A_%a.out
+#SBATCH --error=/scratch2/james2602/URLB/logs_baseline_finetune/%A/%A_%a.err
 
 set -euo pipefail
 BASE_TMP=${SLURM_TMPDIR:-/tmp/$USER/$SLURM_JOB_ID}
@@ -32,9 +32,9 @@ if (( SLURM_ARRAY_TASK_ID >= TOTAL )); then
 
 
 seed_idx=$(( SLURM_ARRAY_TASK_ID % S ))
-snapshot_idx=$(( (SLURM_ARRAY_TASK_ID / S) % N ))
-task_idx=$(((SLURM_ARRAY_TASK_ID / (S * N)) % A ))
-agent_idx=$(( SLURM_ARRAY_TASK_ID / (S * N * A) ))
+snapshot_idx=$(((SLURM_ARRAY_TASK_ID / S) % N ))
+agent_idx=$(((SLURM_ARRAY_TASK_ID / (S * N)) % A ))
+task_idx=$(((SLURM_ARRAY_TASK_ID / (S * N * A)) % T))
 
 SEED=${SEEDS[$seed_idx]}
 SNAPSHOT=${SNAPSHOTS[$snapshot_idx]}
@@ -83,12 +83,9 @@ if command -v conda >/dev/null 2>&1; then
   conda activate urlb || true
 fi
 
-#echo "HOME=[$HOME]"
-#ls -ld "$HOME" "$HOME/URLB" "$HOME/URLB/url_benchmark" || true
-#cd "$HOME/URLB/url_benchmark"
-
-ls -ld "/scratch2/james2602/URLB" || true
-cd "/scratch2/james2602/URLB"
+echo "HOME=[$HOME]"
+ls -ld "$HOME" "$HOME/URLB" "$HOME/URLB/url_benchmark" || true
+cd "$HOME/URLB/url_benchmark"
 
 
 python finetune.py \
@@ -97,10 +94,11 @@ python finetune.py \
   agent=${AGENT} \
   snapshot_ts=${SNAPSHOT} \
   obs_type=${OBS_TYPE} \
-  reward_free=false \ 
+  reward_free=false \
   action_repeat=1 \
-  use_wandb=True \
-  snapshot_base_dir="/scratch2/james2602/URLB/url_benchmark/outputs_pretrain" \
+  use_wandb=true \
+  wandb_project="urlb_finetuning_walker_icm_diayn" \
+  snapshot_base_dir="/scratch2/james2602/URLB/outputs_pretrain" \
   hydra.run.dir="${LOG_BASE}"
 
 echo "=========== seff & dmesg ==========="

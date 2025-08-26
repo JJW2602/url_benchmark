@@ -89,7 +89,6 @@ echo "HOME=[$HOME]"
 ls -ld "$HOME" "$HOME/URLB" "$HOME/URLB/url_benchmark" || true
 cd "$HOME/URLB/url_benchmark"
 
-
 python pretrain.py \
   seed=${SEED} \
   domain=${DOMAIN} \
