@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=URLB
-#SBATCH --partition=base_suma_rtx3090
+#SBATCH --partition=suma_rtx4090
 #SBATCH --qos=base_qos
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
@@ -97,7 +97,7 @@ python finetune.py \
   reward_free=false \
   action_repeat=1 \
   use_wandb=true \
-  wandb_project="urlb_finetuning_walker_icm_diayn" \
+  wandb_project="urlb_finetuning_walker_icm_apt_aps" \
   snapshot_base_dir="/scratch2/james2602/URLB/outputs_pretrain" \
   hydra.run.dir="${LOG_BASE}"
 

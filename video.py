@@ -43,7 +43,7 @@ class VideoRecorder:
         fps, skip = 6, 8
         wandb.log({
             'eval/video':
-            wandb.Video(frames[::skip, :, ::2, ::2], fps=fps, format="gif")
+            wandb.Video(frames[::skip, :, ::2, ::2], fps=fps, format="mp4")
         })
 
     def save(self, file_name):
@@ -90,7 +90,7 @@ class TrainVideoRecorder:
         fps, skip = 6, 8
         wandb.log({
             'train/video':
-            wandb.Video(frames[::skip, :, ::2, ::2], fps=fps, format="gif")
+            wandb.Video(frames[::skip, :, ::2, ::2], fps=fps, format="mp4")
         })
 
     def save(self, file_name):

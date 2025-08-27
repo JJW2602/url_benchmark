@@ -97,6 +97,7 @@ python pretrain.py \
   action_repeat=1 \
   use_wandb=True \
   snapshot_dir="snapshot" \
+  wandb_project="urlb_pretraining" \
   hydra.run.dir="${LOG_BASE}"
 
 echo "=========== seff & dmesg ==========="
