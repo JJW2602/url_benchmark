@@ -15,6 +15,7 @@ num_train_frames: 100010
 num_seed_frames: 4000
 # eval
 eval_every_frames: 1000
+video_eval_every_frames: 10000
 num_eval_episodes: 10
 # pretrained
 snapshot_ts: 100000
