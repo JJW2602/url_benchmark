@@ -1,14 +1,14 @@
 #!/bin/bash
 #SBATCH --job-name=URLB
-#SBATCH --partition=suma_rtx4090
-#SBATCH --qos=base_qos
+#SBATCH --partition=big_suma_rtx3090
+#SBATCH --qos=big_qos
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=72:00:00
-#SBATCH --array=23-89%30
-#SBATCH --output=logs_baseline_pretrain/%A/%A_%a.out
-#SBATCH --error=logs_baseline_pretrain/%A/%A_%a.err
+#SBATCH --array=0-719%30
+#SBATCH --output=/scratch2/james2602/URLB/logs_baseline_finetune/%A/%A_%a.out
+#SBATCH --error=/scratch2/james2602/URLB/logs_baseline_finetune/%A/%A_%a.err
 
 set -euo pipefail
 BASE_TMP=${SLURM_TMPDIR:-/tmp/$USER/$SLURM_JOB_ID}
@@ -17,44 +17,42 @@ mkdir -p "$BASE_TMP"
 
 ##### Job settings #####
 SEEDS=(1 2 3 4 5 6 7 8 9 10)
-AGENT_LABELS=( "diayn" "aps" "smm")
-AGENT_KEYS=( "diayn" "aps" "smm")
-AGENT_DIRS=( "diayn" "aps" "smm")
-DOMAINS=("walker" "quadruped" "jaco")
-
+SNAPSHOTS=(100000 300000 500000 700000 1000000 1200000 1500000 1800000 2000000)
+AGENTS=( "smm" "rnd")
+TASKS=("walker_stand" "walker_walk" "walker_run" "walker_flip")
 
 S=${#SEEDS[@]}            # 10
-A=${#AGENT_LABELS[@]}     # 3
-D=${#DOMAINS[@]}          # 3
-TOTAL=$((S * A * D))
+N=${#SNAPSHOTS[@]}        # 9
+A=${#AGENTS[@]}           # 2
+T=${#TASKS[@]}            # 4
+TOTAL=$((S * N *  A * T))
 
 if (( SLURM_ARRAY_TASK_ID >= TOTAL )); then
   echo "TASK_ID ${SLURM_ARRAY_TASK_ID} is out of range (TOTAL=$TOTAL)"; exit 1; fi
 
 
 seed_idx=$(( SLURM_ARRAY_TASK_ID % S ))
-agent_idx=$(( (SLURM_ARRAY_TASK_ID / S) % A ))
-domain_idx=$(( SLURM_ARRAY_TASK_ID / (S * A) ))
+snapshot_idx=$(((SLURM_ARRAY_TASK_ID / S) % N ))
+agent_idx=$(((SLURM_ARRAY_TASK_ID / (S * N)) % A ))
+task_idx=$(((SLURM_ARRAY_TASK_ID / (S * N * A)) % T))
 
 SEED=${SEEDS[$seed_idx]}
-DOMAIN=${DOMAINS[$domain_idx]}
-AGENT_LABEL=${AGENT_LABELS[$agent_idx]}
-AGENT_KEY=${AGENT_KEYS[$agent_idx]}
-AGENT_DIR=${AGENT_DIRS[$agent_idx]}
+SNAPSHOT=${SNAPSHOTS[$snapshot_idx]}
+TASK=${TASKS[$task_idx]}
+AGENT=${AGENTS[$agent_idx]} 
 
 
-echo "JOB ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID} :: agent_label='${AGENT_LABEL}' key='${AGENT_KEY}' domain='${DOMAIN}' seed=${SEED}"
+echo "JOB ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID} :: agent='${AGENT}' key='${AGENT}' task='${TASK}' snapshot=${SNAPSHOT} seed=${SEED}"
 
 
 ##### Logging directories #####
-LOG_BASE="outputs_pretrain/${DOMAIN}/${AGENT_DIR}/seed_${SEED}"
+LOG_BASE="/scratch2/james2602/URLB/outputs_finetune/${TASK}/${AGENT}/snapshot_${SNAPSHOT}/seed_${SEED}"
 LOG_DIR="${LOG_BASE}/logs"
 mkdir -p "$LOG_DIR"
 
 OUT="${LOG_DIR}/job${SLURM_JOB_ID}_task${SLURM_ARRAY_TASK_ID}.out"
 ERR="${LOG_DIR}/job${SLURM_JOB_ID}_task${SLURM_ARRAY_TASK_ID}.err"
 exec > >(tee -a "$OUT") 2> >(tee -a "$ERR" >&2)
-
 
 RUN_ID=${SLURM_ARRAY_TASK_ID}
 RUN_TAG="${SLURM_JOB_ID}_${RUN_ID}"
@@ -90,14 +88,17 @@ ls -ld "$HOME" "$HOME/URLB" "$HOME/URLB/url_benchmark" || true
 cd "$HOME/URLB/url_benchmark"
 
 
-python pretrain.py \
+python finetune.py \
   seed=${SEED} \
-  domain=${DOMAIN} \
-  agent=${AGENT_KEY} \
+  task=${TASK} \
+  agent=${AGENT} \
+  snapshot_ts=${SNAPSHOT} \
   obs_type=${OBS_TYPE} \
+  reward_free=false \
   action_repeat=1 \
-  use_wandb=True \
-  snapshot_dir="snapshot" \
+  use_wandb=true \
+  wandb_project="urlb_finetuning_walker_smm_rnd" \
+  snapshot_base_dir="/scratch2/james2602/URLB/outputs_pretrain" \
   hydra.run.dir="${LOG_BASE}"
 
 echo "=========== seff & dmesg ==========="

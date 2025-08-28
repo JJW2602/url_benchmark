@@ -6,7 +6,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=72:00:00
-#SBATCH --array=63-269%50
+#SBATCH --array=180-269%50
 #SBATCH --output=/scratch2/james2602/URLB/logs_baseline_pretrain/%A/%A_%a.out
 #SBATCH --error=/scratch2/james2602/URLB/logs_baseline_pretrain/%A/%A_%a.err
 
@@ -97,7 +97,7 @@ python pretrain.py \
   action_repeat=1 \
   use_wandb=True \
   snapshot_dir="snapshot" \
-  wandb_project="urlb_pretraining" \
+  wandb_project="urlb_pretraining_jaco" \
   hydra.run.dir="${LOG_BASE}"
 
 echo "=========== seff & dmesg ==========="

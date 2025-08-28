@@ -49,7 +49,7 @@ class Workspace:
                 cfg.experiment, cfg.domain, cfg.agent.name, cfg.obs_type,
                 str(cfg.seed)
             ])
-            wandb.init(project="urlb_pretrain_sbatch", group=cfg.agent.name, name=exp_name)
+            wandb.init(project=cfg.wandb_project, group=cfg.agent.name, name=exp_name)
 
         self.logger = Logger(self.work_dir,
                              use_tb=cfg.use_tb,
@@ -134,7 +134,7 @@ class Workspace:
             self._replay_iter = iter(self.replay_loader)
         return self._replay_iter
 
-    def eval(self):
+    def video_eval(self):
         step, episode, total_reward = 0, 0, 0
         eval_until_episode = utils.Until(self.cfg.num_eval_episodes)
         meta = self.agent.init_meta()
@@ -149,12 +149,30 @@ class Workspace:
                                             eval_mode=True)
                 time_step = self.eval_env.step(action)
                 self.video_recorder.record(self.eval_env)
+                step += 1
+
+            episode += 1
+            self.video_recorder.save(f'{self.global_frame}.mp4')
+
+    def eval(self):
+        step, episode, total_reward = 0, 0, 0
+        eval_until_episode = utils.Until(self.cfg.num_eval_episodes)
+        meta = self.agent.init_meta()
+        while eval_until_episode(episode):
+            time_step = self.eval_env.reset()
+            self.video_recorder.init(self.eval_env, enabled=(episode == 0))
+            while not time_step.last():
+                with torch.no_grad(), utils.eval_mode(self.agent):
+                    action = self.agent.act(time_step.observation,
+                                            meta,
+                                            self.global_step,
+                                            eval_mode=True)
+                time_step = self.eval_env.step(action)
                 total_reward += time_step.reward
                 step += 1
 
             episode += 1
-            vid_path = self.work_dir / "eval_video" / f"{self.global_frame}.mp4"
-            self.video_recorder.save(vid_path)
+           
 
         avg_return = total_reward / episode
         avg_length = step * self.cfg.action_repeat / episode
@@ -179,6 +197,8 @@ class Workspace:
                                       self.cfg.action_repeat)
         eval_every_step = utils.Every(self.cfg.eval_every_frames,
                                       self.cfg.action_repeat)
+        video_eval_every_step = utils.Every(self.cfg.video_eval_every_frames,
+                                      self.cfg.action_repeat)
 
         episode_step, episode_reward = 0, 0
         time_step = self.train_env.reset()
@@ -188,13 +208,15 @@ class Workspace:
         metrics = None
         while train_until_step(self.global_step):
             if time_step.last():
+                
                 self._global_episode += 1
                 self.train_video_recorder.save(f'{self.global_frame}.mp4')
+                episode_frame = episode_step * self.cfg.action_repeat
                 # wait until all the metrics schema is populated
                 if metrics is not None:
                     # log stats
                     elapsed_time, total_time = self.timer.reset()
-                    episode_frame = episode_step * self.cfg.action_repeat
+                    #episode_frame = episode_step * self.cfg.action_repeat
                     with self.logger.log_and_dump_ctx(self.global_frame,
                                                       ty='train') as log:
                         log('fps', episode_frame / elapsed_time)
@@ -210,10 +232,12 @@ class Workspace:
                 meta = self.agent.init_meta()
                 self.replay_storage.add(time_step, meta)
                 self.train_video_recorder.init(time_step.observation)
+                
                 # try to save snapshot
-                if self.global_frame in self.cfg.snapshots:
+                total_step_episode_period = self.global_episode * episode_frame
+                if total_step_episode_period in self.cfg.snapshots:
                     self.save_snapshot()
-                episode_step = 0
+                episode_step = 1 # if walker, quadruped env, episode_step starts from 0
                 episode_reward = 0
 
             # try to evaluate
@@ -221,6 +245,8 @@ class Workspace:
                 self.logger.log('eval_total_time', self.timer.total_time(),
                                 self.global_frame)
                 self.eval()
+            if video_eval_every_step(self.global_step):
+                self.video_eval()
 
             meta = self.agent.update_meta(meta, self.global_step, time_step)
             # sample action
