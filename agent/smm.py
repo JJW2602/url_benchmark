@@ -267,9 +267,10 @@ class SMMAgent(DDPGAgent):
             reward = extr_reward
 
         if self.use_tb or self.use_wandb:
-            metrics.update(vae_metrics)
-            metrics.update(pred_metrics)
-            metrics['intr_reward'] = intr_reward.mean().item()
+            if self.reward_free:
+                metrics.update(vae_metrics)
+                metrics.update(pred_metrics)
+                metrics['intr_reward'] = intr_reward.mean().item()
             metrics['extr_reward'] = extr_reward.mean().item()
             metrics['batch_reward'] = reward.mean().item()
 

@@ -116,6 +116,7 @@ class Workspace:
         )
         self.eval_calls = 0
         self.total_eval_episodes_run = 0
+        self.total_step_episode_period = 0
     @property
     def global_step(self):
         return self._global_step
@@ -282,7 +283,7 @@ class Workspace:
     def save_snapshot(self):
         snapshot_dir = self.work_dir / Path(self.cfg.snapshot_dir)
         snapshot_dir.mkdir(exist_ok=True, parents=True)
-        snapshot = snapshot_dir / f'snapshot_{self.global_frame}.pt'
+        snapshot = snapshot_dir / f'snapshot_{self.total_step_episode_period}.pt' # self.global_frame
         keys_to_save = ['agent', '_global_step', '_global_episode']
         payload = {k: self.__dict__[k] for k in keys_to_save}
         with snapshot.open('wb') as f:
