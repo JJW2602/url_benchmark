@@ -1,50 +1,45 @@
 #!/bin/bash
-#SBATCH --job-name=URLB
-#SBATCH --partition=base_suma_rtx3090
-#SBATCH --qos=base_qos
+#SBATCH --job-name=init_q_false
+#SBATCH --partition=big_suma_rtx3090
+#SBATCH --qos=big_qos
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=32G
 #SBATCH --time=72:00:00
-#SBATCH --array=0-80%50
+#SBATCH --array=46-539%50
 #SBATCH --output=/scratch2/james2602/URLB/logs_baseline_finetune/%A/%A_%a.out
 #SBATCH --error=/scratch2/james2602/URLB/logs_baseline_finetune/%A/%A_%a.err
 
-set -euo pipefail
+set -eo pipefail
 BASE_TMP=${SLURM_TMPDIR:-/tmp/$USER/$SLURM_JOB_ID}
 mkdir -p "$BASE_TMP"
 
 
 ##### Job settings #####
-SEEDS=(1 2 3 4 5 6 7 8 9 10)
-SNAPSHOTS=(100000 500000 1000000 2000000)
-AGENTS=("icm_apt") #4
-TASKS=("jaco_reach_bottom_left" "jaco_reach_bottom_right" "jaco_reach_top_left" "jaco_reach_top_right") #4
+SEEDS=(1 2 3 4 5)
+SNAPSHOT=2000000
+AGENTS=("icm" "proto"  "diayn" "icm_apt" "aps" "smm" "rnd" "disagreement" "cic") #9
+TASKS=("walker_stand" "walker_walk" "walker_run" "walker_flip" "quadruped_walk" "quadruped_run" "quadruped_stand" "quadruped_jump" "jaco_reach_bottom_left" "jaco_reach_bottom_right" "jaco_reach_top_left" "jaco_reach_top_right")
 
-S=${#SEEDS[@]}            # 10
-N=${#SNAPSHOTS[@]}        # 4
-A=${#AGENTS[@]}           # 1
-T=${#TASKS[@]}            # 4
-TOTAL=$((S * N *  A * T))
+S=${#SEEDS[@]}            # 5
+A=${#AGENTS[@]}           # 9
+T=${#TASKS[@]}            # 12
+TOTAL=$((S *  A * T))
 
 TASKS_PER_ARRAY=2     # 한 GPU에서 동시에 2개
 ARR_ID=${SLURM_ARRAY_TASK_ID}
 
 seed_idx=$(( SLURM_ARRAY_TASK_ID % S ))
-snapshot_idx=$(((SLURM_ARRAY_TASK_ID / S) % N ))
-agent_idx=$(((SLURM_ARRAY_TASK_ID / (S * N)) % A ))
-task_idx=$(((SLURM_ARRAY_TASK_ID / (S * N * A)) % T))
+agent_idx=$(((SLURM_ARRAY_TASK_ID / S) % A ))
+task_idx=$(( (SLURM_ARRAY_TASK_ID / (S * A))  % T ))
 
 SEED=${SEEDS[$seed_idx]}
-SNAPSHOT=${SNAPSHOTS[$snapshot_idx]}
 TASK=${TASKS[$task_idx]}
 AGENT=${AGENTS[$agent_idx]} 
 OBS_TYPE=states
 ACTION_REPEAT=1
 
-echo "JOB ${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID} :: agent='${AGENT}' key='${AGENT}' task='${TASK}' snapshot=${SNAPSHOT} base_seed=${SEED}"
-
-
+# system sttings
 CONDA_ENV="URLB"
 PROJECT_DIR="$HOME/URLB/url_benchmark"
 JOB_ID="${SLURM_JOB_ID}"
@@ -52,7 +47,7 @@ IDX="${SLURM_ARRAY_TASK_ID}"
 
 # 리소스/공유 동작 옵션
 ENABLE_MPS="${ENABLE_MPS:-1}"         # 1이면 NVIDIA MPS 사용 시도(권장)
-CPUS_PER_RUN="${CPUS_PER_RUN:-2}"     # 각 프로세스당 CPU 스레드 수 (4/2=2)
+CPUS_PER_RUN="${CPUS_PER_RUN:-2}"     # 각 프로세스당 CPU 스레드 수 (8/4=2)
 GPU_SHARE="${GPU_SHARE:-50}"          # MPS에서 각 프로세스 GPU 지분(%)
 
 # ── Conda 활성화 (nounset 잠시 해제) ──────────────────────────
@@ -85,7 +80,7 @@ if [[ "${ENABLE_MPS}" == "1" ]]; then start_mps; fi
 
 # ========================= 실행 함수 =========================
 run_one () {
-  local idx="$1"         # idx: 0,1
+  local idx="$1"         # idx: 1~5
   local seed_actual=$((2*SEED - idx))
 
   #logging directories
@@ -95,7 +90,7 @@ run_one () {
   local OUT="${LOG_DIR}/job${SLURM_JOB_ID}_task${SLURM_ARRAY_TASK_ID}.out"
   local ERR="${LOG_DIR}/job${SLURM_JOB_ID}_task${SLURM_ARRAY_TASK_ID}.err"
 
-  echo "[LAUNCH] ${TASK} | ${AGENT} | seed=${seed_actual} | → ${OUT}"
+  echo "[LAUNCH] ${TASK} | ${AGENT} | seed=${seed_actual} | snapshot=${SNAPSHOT} → ${OUT}"
 
   (
     export CUDA_MPS_ACTIVE_THREAD_PERCENTAGE="${GPU_SHARE}"
@@ -112,11 +107,12 @@ run_one () {
       task=${TASK} \
       agent=${AGENT} \
       snapshot_ts=${SNAPSHOT} \
+      agent.init_critic=false \
       obs_type=${OBS_TYPE} \
       reward_free=false \
       action_repeat=1 \
       use_wandb=true \
-      wandb_project="urlb_finetuning_jaco_aps" \
+      wandb_project="urlb_finetuning_init_critic_false" \
       snapshot_base_dir="/scratch2/james2602/URLB/outputs_pretrain" \
       hydra.run.dir="${LOG_BASE}"
   ) &

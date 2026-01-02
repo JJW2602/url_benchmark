@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --job-name=URLB
-#SBATCH --partition=suma_a6000
+#SBATCH --partition=base_suma_rtx3090
 #SBATCH --qos=base_qos
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
-outputs_pretrain#SBATCH --mem=32G
+#SBATCH --mem=32G
 #SBATCH --time=72:00:00
 #SBATCH --array=0-9%30
 #SBATCH --output=/scratch2/james2602/URLB/logs_baseline_pretrain/%A/%A_%a.out
@@ -18,9 +18,9 @@ mkdir -p "$BASE_TMP"
 ##### Job settings #####
 SEEDS=(1 2 3 4 5 6 7 8 9 10)
 DOMAINS=("jaco")
-AGENT_LABELS=("cic")
-AGENT_KEYS=(   "cic")
-AGENT_DIRS=(   "cic")
+AGENT_LABELS=("cic_onehot")
+AGENT_KEYS=(   "cic_onehot")
+AGENT_DIRS=(   "cic_onehot")
 
 
 S=${#SEEDS[@]}            # 10

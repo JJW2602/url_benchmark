@@ -42,6 +42,7 @@ class Workspace:
         utils.set_seed_everywhere(cfg.seed)
         self.device = torch.device(cfg.device)
         self.domain, _ = self.cfg.task.split('_', 1)
+        self.cfg.domain = self.domain
 
         if cfg.use_wandb:
             exp_name = '_'.join([
@@ -54,6 +55,7 @@ class Workspace:
         self.logger = Logger(self.work_dir,
                              use_tb=cfg.use_tb,
                              use_wandb=cfg.use_wandb)
+
         # create envs
 
         self.train_env = dmc.make(cfg.task, cfg.obs_type, cfg.frame_stack,
@@ -173,11 +175,17 @@ class Workspace:
                 time_step = self.eval_env.step(action)
                 total_reward += time_step.reward
                 step += 1
-
             episode += 1
 
         avg_return = total_reward / episode
         avg_length = step * self.cfg.action_repeat / episode
+
+        with self.logger.log_and_dump_ctx(self.global_frame, ty='eval') as log:
+            log('episode_reward', float(avg_return))
+            log('episode_length', float(avg_length))
+            log('episode', int(self.global_episode))
+            log('step', int(self.global_step))
+            log('total_time', self.timer.total_time())
 
         if self.cfg.use_wandb:
             wandb.log({

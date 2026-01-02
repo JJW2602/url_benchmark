@@ -247,7 +247,10 @@ class Workspace:
                 self.total_step_episode_period = self.global_episode * episode_frame
                 if self.total_step_episode_period in self.cfg.snapshots:
                     self.save_snapshot()
-                episode_step = 0 # if walker, quadruped env, episode_step starts from 0
+                if self.cfg.domain == 'jaco':
+                    episode_step = 1 # if walker, quadruped env, episode_step starts from 0 ; jaco starts from 1
+                else:
+                    episode_step = 0
                 episode_reward = 0
 
             # try to evaluate

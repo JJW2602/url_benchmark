@@ -145,6 +145,8 @@ class SMMAgent(DDPGAgent):
         self.latent_ent_coef = latent_ent_coef
         self.latent_cond_ent_coef = latent_cond_ent_coef
         self.update_encoder = update_encoder
+        
+        self.used_skills = np.zeros(self.skill_dim, dtype=np.float32)
 
         kwargs["meta_dim"] = self.z_dim
         super().__init__(**kwargs)
@@ -173,6 +175,16 @@ class SMMAgent(DDPGAgent):
         z[np.random.choice(self.z_dim)] = 1.0
         meta = OrderedDict()
         meta['z'] = z
+        return meta
+    
+    def init_distinct_meta(self, z_index):
+        if self.used_skills[z_index] == 1:
+            print("### Warning: skill", z_index, "has been used already!")
+            return
+        skill = np.zeros(self.skill_dim, dtype=np.float32)
+        skill[z_index] = 1.0
+        meta = OrderedDict()
+        meta['skill'] = skill
         return meta
 
     def update_meta(self, meta, global_step, time_step):
