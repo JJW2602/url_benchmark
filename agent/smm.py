@@ -136,7 +136,7 @@ class PSMM(nn.Module):
 
 
 class SMMAgent(DDPGAgent):
-    def __init__(self, z_dim, sp_lr, vae_lr, vae_beta, state_ent_coef,
+    def __init__(self, z_dim, sp_lr, vae_lr, vae_beta, state_ent_coef, skill_dim,
                  latent_ent_coef, latent_cond_ent_coef, update_encoder,
                  **kwargs):
         self.z_dim = z_dim

@@ -120,7 +120,7 @@ setup_for_index () {
 
   seed="${SEED[$SIDX]}"
   agent="${AGENT[$AIDX]}"
-  task="${TASK[$DIDX]}"
+  task="${TASK[$TIDX]}"
 
   RUN_TAG="${JOB_ID}_${IDX}"
   echo "[${RUN_TAG}] seed=${seed}, agent=${agent}, task=${task}"

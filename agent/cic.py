@@ -13,7 +13,6 @@ from agent.ddpg import DDPGAgent
 
 
 
-
 class CIC(nn.Module):
     def __init__(self, obs_dim, skill_dim, hidden_dim, project_skill):
         super().__init__()

@@ -196,7 +196,7 @@ class Proto(nn.Module):
 
 
 class CeSDAgent(EnsembleDDPGAgent):
-    def __init__(self, update_skill_every_step, scale, project_skill, rew_type, update_rep, temp, ensemble_size,
+    def __init__(self, update_skill_every_step, scale, project_skill, rew_type, update_rep, temp, ensemble_size, skill_dim,
                     proto_T, proto_num_iters, constrain_factor, domain, **kwargs):
         self.temp = temp
         self.skill_dim = ensemble_size
