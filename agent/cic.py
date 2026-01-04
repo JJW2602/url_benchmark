@@ -120,7 +120,8 @@ class CICAgent(DDPGAgent):
         kwargs["meta_dim"] = self.skill_dim
         # create actor and critic
         
-
+        self.used_skills = np.zeros(self.agent.skill_dim, dtype=np.float32) # not used
+        
         super().__init__(**kwargs)
         # create cic first
         self.cic = CIC(self.obs_dim - skill_dim, skill_dim,
@@ -145,6 +146,18 @@ class CICAgent(DDPGAgent):
         meta = OrderedDict()
         meta['skill'] = skill
         return meta
+
+    def init_distinct_meta(self, z_index):
+        if not self.reward_free:
+            # selects mean skill of 0.5 (to select skill automatically use CEM or Grid Sweep
+            # procedures described in the CIC paper)
+            skill = np.ones(self.skill_dim).astype(np.float32) * 0.5
+        else:
+            skill = np.random.uniform(0,1,self.skill_dim).astype(np.float32)
+        meta = OrderedDict()
+        meta['skill'] = skill
+        return meta
+    
 
     def update_meta(self, meta, step, time_step):
         if step % self.update_skill_every_step == 0:

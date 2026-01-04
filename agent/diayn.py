@@ -35,6 +35,9 @@ class DIAYNAgent(DDPGAgent):
         self.update_skill_every_step = update_skill_every_step
         self.diayn_scale = diayn_scale
         self.update_encoder = update_encoder
+        
+        self.used_skills = np.zeros(self.skill_dim, dtype=np.float32)
+
         # increase obs shape to include skill dim
         kwargs["meta_dim"] = self.skill_dim
 
@@ -58,6 +61,16 @@ class DIAYNAgent(DDPGAgent):
     def init_meta(self):
         skill = np.zeros(self.skill_dim, dtype=np.float32)
         skill[np.random.choice(self.skill_dim)] = 1.0
+        meta = OrderedDict()
+        meta['skill'] = skill
+        return meta
+
+    def init_distinct_meta(self, z_index):
+        if self.used_skills[z_index] == 1:
+            print("### Warning: skill", z_index, "has been used already!")
+            return
+        skill = np.zeros(self.skill_dim, dtype=np.float32)
+        skill[z_index] = 1.0
         meta = OrderedDict()
         meta['skill'] = skill
         return meta

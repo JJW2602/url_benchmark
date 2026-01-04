@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=URLB(cesd,cic,diayn,aps,smm)_baseline_finetune
+#SBATCH --job-name=measure_mi_cic
 #SBATCH --partition=big_suma_rtx3090
 #SBATCH --qos=big_qos
 #SBATCH --gres=gpu:1
@@ -7,35 +7,34 @@
 #SBATCH --mem=32G
 #SBATCH --time=72:00:00
 #SBATCH --array=0-600:3%90
-#SBATCH --output=/scratch2/james2602/URLB/logs_baseline_finetune/%A/%j_%a.out
-#SBATCH --error=/scratch2/james2602/URLB/logs_baseline_finetune/%A/%j_%a.err
+#SBATCH --output=/scratch2/james2602/URLB/logs_mi_measure_results/%A/%j_%a.out
+#SBATCH --error=/scratch2/james2602/URLB/logs_mi_measure_results/%A/%j_%a.err
 
 set -euo pipefail
 BASE_TMP=${SLURM_TMPDIR:-/tmp/$USER/$SLURM_JOB_ID}
 mkdir -p "$BASE_TMP"
 
-
 # ========================= 사용자 설정 =========================
 
 TASKS_PER_ARRAY=3     # 한 GPU에서 동시에 3개
 CONDA_ENV="URLB"
-PROJECT_DIR="$HOME/URLB/url_benchmark"
+PROJECT_DIR="$HOME/URLB/mimdice/url_benchmark"
 TASK_ID="${SLURM_ARRAY_TASK_ID}"     
 JOB_ID="${SLURM_JOB_ID}"
 
 # ===================== 스윕 하이퍼파라미터 =====================
 
-AGENT=("cesd" "cic" "diayn" "aps" "smm")
-TASK=("jaco_reach_bottom_left" "jaco_reach_bottom_right" "jaco_reach_top_left" "jaco_reach_top_right" "quadruped_stand" "quadruped_run" "quadruped_walk" "quadruped_jump" "walker_stand" "walker_walk" "walker_run" "walker_flip")     
+AGENT=("cic")
+DOMAIN=("jaco" "quadruped" "walker")
 SEED=(1 2 3 4 5 6 7 8 9 10)
+SNAPSHOT_TS=(100000 200000 300000 400000 500000 600000 700000 800000 900000 1000000 1100000 1200000 1300000 1400000 1500000 1600000 1700000 1800000 1900000 2000000)
 
 NUM_S=${#SEED[@]}
 NUM_A=${#AGENT[@]}
-NUM_T=${#TASK[@]}
-SNAPSHOT=2000000
-INIT_CRITIC="true"
+NUM_D=${#DOMAIN[@]}
+NUM_SNAP=${#SNAPSHOT_TS[@]}
 
-TOTAL_COMB=$(( NUM_S * NUM_A * NUM_T ))
+TOTAL_COMB=$(( NUM_S * NUM_A * NUM_D * NUM_SNAP))
 ARRAY_MAX=$(( TOTAL_COMB - 1 ))
 
 # ENV
@@ -45,9 +44,9 @@ export HYDRA_FULL_ERROR=1
 export PYTHONUNBUFFERED=1
 
 export WANDB_MODE="offline"
-export WANDB_CACHE_DIR=/scratch2/$USER/wandb-cache/mimdice/baseline_finetune
-export WANDB_DIR=/scratch2/$USER/wandb-runs/mimdice/baseline_finetune
-export WANDB_DATA_DIR=/scratch2/$USER/wandb-staging/mimdice/baseline_finetune
+export WANDB_CACHE_DIR=/scratch2/$USER/wandb-cache/mimdice/mi_measure
+export WANDB_DIR=/scratch2/$USER/wandb-runs/mimdice/mi_measure
+export WANDB_DATA_DIR=/scratch2/$USER/wandb-staging/mimdice/mi_measure
 mkdir -p "$WANDB_CACHE_DIR" "$WANDB_DIR" "$WANDB_DATA_DIR"
 echo "[W&B] cache=$WANDB_CACHE_DIR dir=$WANDB_DIR data=$WANDB_DATA_DIR"
 
@@ -111,30 +110,33 @@ setup_for_index () {
 
   # (Outer Loop) Seed -> Agent -> Task (Inner Loop)
   local s_stride=1
-  local a_stride=$((s_stride * NUM_S))
-  local t_stride=$((a_stride * NUM_A))
+  local snap_stride=$((s_stride * NUM_S))
+  local a_stride=$((snap_stride * NUM_SNAP))
+  local d_stride=$((a_stride * NUM_A))
   
   SIDX=$(( (IDX / s_stride) % NUM_S ))
+  SNAPIDX=$(( (IDX / snap_stride) % NUM_SNAP ))
   AIDX=$(( (IDX / a_stride) % NUM_A ))
-  TIDX=$(( (IDX / t_stride) % NUM_T ))
+  DIDX=$(( (IDX / d_stride) % NUM_D ))
 
   seed="${SEED[$SIDX]}"
+  snapshot_ts="${SNAPSHOT_TS[$SNAPIDX]}"
   agent="${AGENT[$AIDX]}"
-  task="${TASK[$TIDX]}"
+  domain="${DOMAIN[$DIDX]}"
 
   RUN_TAG="${JOB_ID}_${IDX}"
-  echo "[${RUN_TAG}] seed=${seed}, agent=${agent}, task=${task}"
+  echo "[${RUN_TAG}] seed=${seed}, agent=${agent}, domain=${domain}, snapshot_ts=${snapshot_ts}"
 }
 
 run_one () {
   local IDX="$1"
-  local LOG_BASE="/scratch2/james2602/URLB/outputs_finetune_260102/init_q_${INIT_CRITIC}/${task}/${agent}/${seed}"
+  local LOG_BASE="/scratch2/james2602/URLB/mi_measure_results/${domain}/${agent}/${seed}/snapshot_${snapshot_ts}"
   local LOG_DIR="${LOG_BASE}/logs"
   mkdir -p "${LOG_DIR}"
   local OUT="${LOG_DIR}/job${SLURM_JOB_ID}_task${SLURM_ARRAY_TASK_ID}_idx${IDX}.out"
   local ERR="${LOG_DIR}/job${SLURM_JOB_ID}_task${SLURM_ARRAY_TASK_ID}_idx${IDX}.err"
   
-  echo "[LAUNCH] seed=${seed} task=${task} agent=${agent}  → ${OUT}"
+  echo "[LAUNCH] seed=${seed} domain=${domain} agent=${agent} snapshot_ts=${snapshot_ts} → ${OUT}"
   (
     export CUDA_MPS_ACTIVE_THREAD_PERCENTAGE="${GPU_SHARE}"
     export OMP_NUM_THREADS="${CPUS_PER_RUN}"
@@ -144,18 +146,13 @@ run_one () {
 
     exec > >(stdbuf -oL tee -a "${OUT}") 2> >(stdbuf -oL tee -a "${ERR}" >&2)
 
-    exec python finetune.py \
+    exec python measure_mi.py \
       agent=${agent} \
-      task=${task} \
+      domain=${domain} \
       seed=${seed} \
-      snapshot_ts=${SNAPSHOT} \
+      snapshot_ts=${snapshot_ts} \
       obs_type=states \
-      agent.init_critic=${INIT_CRITIC} \
-      reward_free=false \
       action_repeat=1 \
-      use_wandb=True \
-      wandb_project="urlb_finetuning_mimdice_jaco" \
-      snapshot_base_dir="/scratch2/james2602/URLB/outputs_pretrain_260101" \
       hydra.run.dir="${LOG_BASE}"
   ) &
 }

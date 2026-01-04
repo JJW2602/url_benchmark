@@ -94,6 +94,8 @@ class APSAgent(DDPGAgent):
         self.lstsq_batch_size = lstsq_batch_size
         self.update_encoder = update_encoder
 
+        self.used_skills = np.zeros(self.sf_dim, dtype=np.float32) # not used
+        
         # increase obs shape to include task dim
         kwargs["meta_dim"] = self.sf_dim
 
@@ -139,6 +141,16 @@ class APSAgent(DDPGAgent):
         task = task.cpu().numpy()
         meta = OrderedDict()
         meta['task'] = task
+        return meta
+    
+    def init_distinct_meta(self):
+        if self.solved_meta is not None:
+            return self.solved_meta
+        idx  = torch.randint(0, self.sf_dim, (1,))      
+        task = F.one_hot(idx, num_classes=self.sf_dim)  
+        task = task.float().squeeze(0)                 
+        meta = OrderedDict()
+        meta['task'] = task.cpu().numpy()
         return meta
 
     def update_meta(self, meta, global_step, time_step):
