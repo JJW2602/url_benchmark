@@ -167,6 +167,114 @@ class ReplayBuffer(IterableDataset):
     def __iter__(self):
         while True:
             yield self._sample()
+    
+    def _meta_match(self, meta_list, target_meta, atol=1e-6, rtol=0.0):
+        """
+        meta_list: _sample()에서 만드는 meta 리스트 (meta_specs 순서대로)
+        target_meta: dict 또는 list/tuple
+          - dict이면 {spec_name: value}
+          - list/tuple이면 meta_specs 순서에 맞춘 값들
+        """
+        # meta_specs 순서
+        meta_specs = self._storage._meta_specs
+
+        # target_meta를 spec_name -> value dict로 통일
+        if isinstance(target_meta, dict):
+            target_dict = target_meta
+        else:
+            assert len(target_meta) == len(meta_specs), \
+                f"target_meta length mismatch: {len(target_meta)} vs {len(meta_specs)}"
+            target_dict = {spec.name: target_meta[i] for i, spec in enumerate(meta_specs)}
+
+        # meta_list도 spec_name -> value로 매핑해서 비교
+        for i, spec in enumerate(meta_specs):
+            name = spec.name
+            cur = meta_list[i]          # episode에서 뽑힌 meta 값 (np array)
+            tgt = target_dict[name]     # 우리가 원하는 meta 값
+
+            # 스칼라/배열 모두 np.array로 통일
+            cur = np.asarray(cur)
+            tgt = np.asarray(tgt)
+
+            # dtype이 float면 allclose, 아니면 exact compare
+            if np.issubdtype(cur.dtype, np.floating) or np.issubdtype(tgt.dtype, np.floating):
+                if not np.allclose(cur, tgt, atol=atol, rtol=rtol):
+                    return False
+            else:
+                if not np.array_equal(cur, tgt):
+                    return False
+
+        return True
+
+    def sample_batch_by_meta(self, target_meta, batch_size, atol=1e-6, rtol=0.0, max_tries=200000):
+        """
+        target_meta에 해당하는 transition만 골라 batch_size개 모아서 반환.
+        반환 형태: (obs_B, action_B, reward_B, discount_B, next_obs_B, *meta_B)
+          - obs_B: (B, obs_dim) 등
+          - meta_B는 meta spec마다 (B, meta_dim) 형태
+        """
+        # 최신 episode 파일을 가져오도록 fetch 시도
+        self._try_fetch()
+
+        obs_list, action_list, reward_list, discount_list, next_obs_list = [], [], [], [], []
+        meta_lists = None  # meta spec 수만큼 list를 만들기 위해 나중에 초기화
+
+        tries = 0
+        while len(obs_list) < batch_size and tries < max_tries:
+            tries += 1
+
+            episode = self._sample_episode()
+            idx = np.random.randint(0, episode_len(episode) - self._nstep + 1) + 1
+
+            # meta 추출 (idx-1에서)
+            meta = []
+            for spec in self._storage._meta_specs:
+                meta.append(episode[spec.name][idx - 1])
+
+            # meta가 target_meta와 일치하는지 검사
+            if not self._meta_match(meta, target_meta, atol=atol, rtol=rtol):
+                continue
+
+            # 일치하면 transition 구성
+            obs = episode['observation'][idx - 1]
+            action = episode['action'][idx]
+            next_obs = episode['observation'][idx + self._nstep - 1]
+
+            reward = np.zeros_like(episode['reward'][idx])
+            discount = np.ones_like(episode['discount'][idx])
+            for i in range(self._nstep):
+                step_reward = episode['reward'][idx + i]
+                reward += discount * step_reward
+                discount *= episode['discount'][idx + i] * self._discount
+
+            obs_list.append(obs)
+            action_list.append(action)
+            reward_list.append(reward)
+            discount_list.append(discount)
+            next_obs_list.append(next_obs)
+
+            if meta_lists is None:
+                meta_lists = [[] for _ in meta]
+            for j in range(len(meta)):
+                meta_lists[j].append(meta[j])
+
+        if len(obs_list) < batch_size:
+            raise RuntimeError(
+                f"Could not collect enough samples for target_meta. "
+                f"collected={len(obs_list)}/{batch_size}, tries={tries}/{max_tries}. "
+                f"Try increasing max_tries or loosening atol."
+            )
+
+        # stack해서 batch 만들기
+        obs_B = np.stack(obs_list, axis=0)
+        action_B = np.stack(action_list, axis=0)
+        reward_B = np.stack(reward_list, axis=0)
+        discount_B = np.stack(discount_list, axis=0)
+        next_obs_B = np.stack(next_obs_list, axis=0)
+
+        meta_B = [np.stack(m, axis=0) for m in meta_lists]  # meta spec별로 (B, ...)
+
+        return (obs_B, action_B, reward_B, discount_B, next_obs_B, *meta_B)
 
 
 def _worker_init_fn(worker_id):

@@ -89,8 +89,6 @@ class Workspace:
         self.save_dir.mkdir(parents=True, exist_ok=True)
 
         # init knn
-        print("initializing knn estimator...")
-
         rms = utils.RMS(self.device)
         self.pbe = utils.PBE(rms, knn_clip=0.0, knn_k=6, knn_avg=True, knn_rms=True,
                              device=self.device, shift=1e-6)
@@ -154,11 +152,12 @@ class Workspace:
         '''
         
         collect_until_episode = utils.Until(self.cfg.num_collect_episodes,
-                                       self.global_episode)   
+                                            self.cfg.action_repeat)   
         
         # collect 2 episodes for each skill
         for z_index in range(self.agent.skill_dim):
             episode_step = 0
+            self.global_episode = 0
             time_step = self.env.reset()
             meta = self.agent.init_distinct_meta(z_index)
             print(f"Collecting samples for skill {z_index}: {meta}")
@@ -186,7 +185,7 @@ class Workspace:
                 self.global_step += 1
 
                 self.pbar.update(1)
-                self.pbar.set_postfix(ep=self._global_episode)
+                self.pbar.set_postfix(ep=self.global_episode)
         self.pbar.close()
         # ====================================
         # E[log d(s)] 추정 (batch 1개)
@@ -198,7 +197,7 @@ class Workspace:
         obs = self.agent.aug_and_encode(obs)  # [B, s_dim]
 
         with torch.no_grad():
-            log_d_s_B = (-self.pbe(obs) * self.s_dim).squeeze(-1)  # [B]
+            log_d_s_B = (-self.pbe(obs) * self.agent.skill_dim).squeeze(-1)  # [B]
             E_log_d_s = log_d_s_B.mean()                           # scalar
 
         # ===========================================
@@ -213,7 +212,7 @@ class Workspace:
             if self.cfg.agent.name in ['cic', 'mimdice']: # continuous skill
                 target_skill = self.sample_meta[z]['skill']
             else: # one-hot skill
-                target_skill = np.zeros(self.skill_dim, dtype=np.float32)
+                target_skill = np.zeros(self.agent.skill_dim, dtype=np.float32)
                 target_skill[z] = 1.0
 
             if self.cfg.agent.name in ['cic', 'diayn', 'cesd']:
@@ -226,7 +225,7 @@ class Workspace:
                 raise NotImplementedError(f"Unknown agent for meta spec name: {self.cfg.agent.name}")
             
             batch_np = self.replay_storage.sample_batch_by_meta(
-                target_meta={meta_spec_name: target_skill},  # meta spec 이름이 'skill'일 때
+                target_meta={meta_spec_name: target_skill},  
                 batch_size=self.cfg.batch_size,
                 atol=1e-6
             )
@@ -258,7 +257,8 @@ class Workspace:
 @hydra.main(config_path='.', config_name='measure_mi')
 def main(cfg):
     from measure_mi import Workspace as W
-    root_dir = Path.cwd()
+    root_dir = Path.cwd
+    print("initializing workspace...")
     workspace = W(cfg)
     print("start measuring mi...")
     workspace.measure_mi() # agent, domain, seed, snapshot_ts -> outputs MI
