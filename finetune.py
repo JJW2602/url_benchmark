@@ -70,6 +70,8 @@ class Workspace:
                                 self.train_env.action_spec(),
                                 cfg.num_seed_frames // cfg.action_repeat,
                                 cfg.agent)
+        
+        self.meta = self.agent.init_meta()
 
         # initialize from pretrained
         if cfg.snapshot_ts > 0:
@@ -144,7 +146,7 @@ class Workspace:
     def video_eval(self):
         step, episode, total_reward = 0, 0, 0
         eval_until_episode = utils.Until(self.cfg.num_eval_episodes)
-        meta = self.agent.init_meta()
+        meta = self.meta
         while eval_until_episode(episode):
             time_step = self.eval_env.reset()
             self.video_recorder.init(self.eval_env, enabled=(episode == 0))
@@ -164,7 +166,7 @@ class Workspace:
     def eval(self):
         step, episode, total_reward = 0, 0, 0
         eval_until_episode = utils.Until(self.cfg.num_eval_episodes)
-        meta = self.agent.init_meta()
+        meta = self.meta
         while eval_until_episode(episode):
             time_step = self.eval_env.reset()
             while not time_step.last():
@@ -213,8 +215,8 @@ class Workspace:
 
         episode_step, episode_reward = 0, 0
         time_step = self.train_env.reset()
-        meta = self.agent.init_meta()
-        self.replay_storage.add(time_step, meta)
+        self.meta = self.agent.init_meta()
+        self.replay_storage.add(time_step, self.meta)
         self.train_video_recorder.init(time_step.observation)
         metrics = None
         while train_until_step(self.global_step):
@@ -238,8 +240,8 @@ class Workspace:
 
                 # reset env
                 time_step = self.train_env.reset()
-                meta = self.agent.init_meta()
-                self.replay_storage.add(time_step, meta)
+                #meta = self.agent.init_meta()
+                self.replay_storage.add(time_step, self.meta)
                 self.train_video_recorder.init(time_step.observation)
 
                 episode_step = 0
@@ -254,7 +256,7 @@ class Workspace:
             if video_eval_every_step(self.global_step):
                 self.video_eval()
 
-            meta = self.agent.update_meta(meta, self.global_step, time_step)
+            self.meta = self.agent.update_meta(self.meta, self.global_step, time_step)
 
             if hasattr(self.agent, "regress_meta"):
                 repeat = self.cfg.action_repeat
@@ -262,13 +264,13 @@ class Workspace:
                 init_step = self.agent.num_init_steps
                 if self.global_step > (
                         init_step // repeat) and self.global_step % every == 0:
-                    meta = self.agent.regress_meta(self.replay_iter,
+                    self.meta = self.agent.regress_meta(self.replay_iter,
                                                    self.global_step)
 
             # sample action
             with torch.no_grad(), utils.eval_mode(self.agent):
                 action = self.agent.act(time_step.observation,
-                                        meta,
+                                        self.meta,
                                         self.global_step,
                                         eval_mode=False)
 
@@ -280,7 +282,7 @@ class Workspace:
             # take env step
             time_step = self.train_env.step(action)
             episode_reward += time_step.reward
-            self.replay_storage.add(time_step, meta)
+            self.replay_storage.add(time_step, self.meta)
             self.train_video_recorder.record(time_step.observation)
             episode_step += 1
             self._global_step += 1
