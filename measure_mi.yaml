@@ -3,10 +3,10 @@ defaults:
   - override hydra/launcher: submitit_local
 
 # mode
-reward_free: false
+reward_free: true
 domain: walker
 # task settings
-task: walker_stand
+task: auto
 obs_type: states # [states, pixels]
 frame_stack: 3 # only works if obs_type=pixels
 action_repeat: 1 # set to 2 for pixels
@@ -19,8 +19,7 @@ snapshot_ts: [100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 90
 snapshot_base_dir: /scratch2/james2602/URLB/outputs_pretrain_260101
 
 # replay buffer
-replay_buffer_size: 1000000
-replay_buffer_num_workers: 4
+replay_buffer_size: 500000
 batch_size: ${agent.batch_size}
 nstep: ${agent.nstep}
 update_encoder: false # can be either true or false depending if we want to fine-tune encoder
@@ -40,6 +39,9 @@ wandb_project: url_benchmark
 wandb_mode: offline
 # experiment
 experiment: exp
+
+#mimdice hyperparameter setting
+hp: 0
 
 
 hydra:

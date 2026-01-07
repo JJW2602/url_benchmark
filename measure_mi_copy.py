@@ -1,5 +1,7 @@
 '''
+[URLB's Repaly Buffer mode]
 This script for Measuring Mutual Information in URL Benchmark using KNN method.
+
 
 Methods:
 - Uploaded snapshots form URL Benchmark repository.
@@ -37,8 +39,7 @@ import dmc
 import utils
 from tqdm import tqdm
 from typing import Optional
-from omegaconf import open_dict 
-from dmc_benchmark import PRIMAL_TASKS
+from replay_buffer import ReplayBufferStorage, make_replay_loader
 
 def make_agent(obs_type, obs_spec, action_spec, num_expl_steps, cfg):
     cfg.obs_type = obs_type
@@ -56,18 +57,11 @@ class Workspace:
         self.cfg = cfg
         utils.set_seed_everywhere(cfg.seed)
         self.device = torch.device(cfg.device)
+        self.domain, _ = self.cfg.task.split('_', 1)
+        self.cfg.domain = self.domain
 
-        # create envs
-        
-        task = getattr(self.cfg, 'task', None)
-        if task and '_' in task:
-            derived_domain = task.split('_', 1)[0]
-            with open_dict(self.cfg):
-                self.cfg.domain = derived_domain
-        else:
-            task = PRIMAL_TASKS[self.cfg.domain]
-            
-        self.env = dmc.make(task, cfg.obs_type, cfg.frame_stack,
+        # init env
+        self.env = dmc.make(cfg.task, cfg.obs_type, cfg.frame_stack,
                                   cfg.action_repeat, cfg.seed)
         
         # init agent
@@ -87,20 +81,25 @@ class Workspace:
         self.sample_meta = [] # for storing collected meta for each skill (to make continuous as discrete)
 
         # init replay buffer for measuring mi
-        self.replay_buffer = NumpyReplayBuffer(
-            obs_shape=self.env.observation_spec().shape,
-            capacity=self.cfg.replay_buffer_size
-        )
+        data_specs = (self.env.observation_spec(),
+                      self.env.action_spec(),
+                      specs.Array((1,), np.float32, 'reward'),
+                      specs.Array((1,), np.float32, 'discount'))
         
-        print(f"replay buffer: {self.replay_buffer}, shape={self.replay_buffer.obs.shape}, capacity={self.replay_buffer.capacity}")
+        self.replay_storage = ReplayBufferStorage(data_specs, meta_specs,
+                                                  self.work_dir / 'buffer')
 
+        # create replay buffer
+        self.replay_loader = make_replay_loader(self.replay_storage,
+                                                cfg.replay_buffer_size,
+                                                cfg.batch_size,                 # not used
+                                                cfg.replay_buffer_num_workers,
+                                                True, cfg.nstep, cfg.discount)
+        self._replay_iter = None
+        
         # save directory
-        self.base_dir = Path("/scratch2/james2602/URLB/mi_measure_results")
-        if self.cfg.agent.name=="MIM_DICE_GRID":
-            self.save_dir = self.base_dir / str(self.cfg.domain) / f"mimdice_{self.cfg.hp}" / str(f"seed_{self.cfg.seed}") / str(self.cfg.snapshot_ts)
-        else:
-            self.save_dir = self.base_dir / str(self.cfg.domain) / str(self.cfg.agent.name) / str(f"seed_{self.cfg.seed}") / str(self.cfg.snapshot_ts)
-        print(f"save dir:{self.save_dir}")
+        self.base_dir = Path("/scratch2/james2602/URLB/mi_measure_results")  # <- 네가 말한 base_dir (cfg에 없으면 cfg.snapshot_base_dir로 바꿔)
+        self.save_dir = self.base_dir / str(self.cfg.agent.name) / str(self.cfg.domain) / str(self.cfg.seed) / str(self.cfg.snapshot_ts)
         self.save_dir.mkdir(parents=True, exist_ok=True)
 
         # init knn
@@ -108,11 +107,10 @@ class Workspace:
         self.pbe = utils.PBE(rms, knn_clip=0.0, knn_k=6, knn_avg=True, knn_rms=True,
                              device=self.device, shift=1e-6)
 
-        print(f"agent's skill dim: {self.agent.skill_dim}")
-        if self.cfg.domain in ['walker', 'quadruped']:
+        if self.domain in ['walker', 'quadruped']:
             self.total_collect_steps =self.agent.skill_dim * cfg.num_collect_episodes * 1000
         else:
-            self.total_collect_steps=self.agent.skill_dim * cfg.num_collect_episodes * 250
+            self.total_collect_steps =self.agent.skill_dim * cfg.num_collect_episodes * 250
 
         
         self.pbar = tqdm(
@@ -133,18 +131,14 @@ class Workspace:
     # snapshot loading
     def load_snapshot(self, snapshot_ts):
             snapshot_base_dir = Path(self.cfg.snapshot_base_dir)
-            if self.cfg.agent.name == 'MIM_DICE_GRID':
-                snapshot_dir = snapshot_base_dir / self.cfg.domain / self.cfg.agent.name / str(self.cfg.hp)
-            else:    
-                snapshot_dir = snapshot_base_dir / self.cfg.domain / self.cfg.agent.name
+            snapshot_dir = snapshot_base_dir / self.domain / self.cfg.agent.name
             def try_load(seed):
                 snapshot = snapshot_dir / f'seed_{seed}' / 'snapshot' / f'snapshot_{snapshot_ts}.pt'
-
                 if not snapshot.exists():
                     raise FileNotFoundError(
                         f"[load_snapshot] Snapshot not found.\n"
                         f"  expected: {snapshot}\n"
-                        f"  domain={self.cfg.domain}, agent={self.cfg.agent.name}, seed={self.cfg.seed}, snapshot_ts={snapshot_ts}\n"
+                        f"  domain={self.domain}, agent={self.cfg.agent.name}, seed={self.cfg.seed}, snapshot_ts={snapshot_ts}\n"
                         f"  hint: check cfg.snapshot_base_dir and directory structure."
                     )
                 with snapshot.open('rb') as f:
@@ -176,6 +170,8 @@ class Workspace:
         
         # collect 2 episodes for each skill
         for z_index in range(self.agent.skill_dim):
+            if (z_index > 0):
+                print(f"Data in Replay buffer: {self.replay_storage}")
             episode_step = 0
             self.global_episode = 0
             time_step = self.env.reset()
@@ -183,25 +179,14 @@ class Workspace:
             print(f"Collecting samples for skill {z_index}: {meta}")
 
             self.sample_meta.append(meta)
-            self.replay_buffer.add(
-                obs=time_step.observation,
-                skill_idx=z_index
-            )
+            self.replay_storage.add(time_step, meta)
 
             # collect samples               
             while collect_until_episode(self.global_episode):
                 if time_step.last():
                     self.global_episode += 1
                     time_step = self.env.reset()
-                    
-                    if not collect_until_episode(self.global_episode):
-                        break
-
-                    self.replay_buffer.add(
-                    obs=time_step.observation,
-                    skill_idx=z_index
-                    )
-
+                    self.replay_storage.add(time_step, meta)
                     episode_step = 0
                     print(f"Starting episode {self.global_episode} for skill {z_index}")
                     
@@ -213,10 +198,7 @@ class Workspace:
                     
                 # take env step
                 time_step = self.env.step(action)
-                self.replay_buffer.add(
-                    obs=time_step.observation,
-                    skill_idx=z_index
-                )
+                self.replay_storage.add(time_step, meta)
                 episode_step += 1
                 self.global_step += 1
 
@@ -226,9 +208,9 @@ class Workspace:
         # ====================================
         # E[log d(s)] 추정 (batch 1개)
         # ====================================
-        batch = self.replay_buffer.sample(self.cfg.batch_size)
-        obs, meta_index = utils.to_torch(batch, self.device)
-        print(f"obs.shape:{obs.shape}")
+        batch = next(self.replay_iter)
+        print(batch)
+        obs, action, reward, discount, next_obs, meta = utils.to_torch(batch, self.device)
 
         # obs -> representation (MIMAgent 스타일: encoder output이 s_dim)
         rep = self.agent.aug_and_encode(obs)  # [B, s_dim]
@@ -247,7 +229,7 @@ class Workspace:
             #    (최소 batch_size만큼 모일 때까지 반복)
             if self.cfg.agent.name in ['cic', 'diayn', 'cesd']:
                 meta_spec_name = 'skill'
-            elif self.cfg.agent.name in ['aps', 'MIM_DICE_GRID']:
+            elif self.cfg.agent.name in ['aps', 'mimdice']:
                 meta_spec_name = 'task'
             elif self.cfg.agent.name in ['smm']:
                 meta_spec_name = 'z'
@@ -255,13 +237,22 @@ class Workspace:
                 raise NotImplementedError(f"Unknown agent for meta spec name: {self.cfg.agent.name}")
             
             target_skill = self.sample_meta[z][meta_spec_name]
-             
+            
 
-            batch_k = self.replay_buffer.sample_by_skill(z, self.cfg.batch_size)
-            obs_k, meta_index_k =  utils.to_torch(batch_k, self.device)
-            print(meta_index_k)
+            print("buffer dir:", self.replay_storage._replay_dir)
+            print("npz before fetch:", len(list(self.replay_storage._replay_dir.glob("*.npz")))) 
 
-            rep_b = self.agent.aug_and_encode(obs_k)  # (B, rep_dim)
+            rb = self.replay_loader.dataset
+            batch_np = rb.sample_batch_by_meta(
+                target_meta={meta_spec_name: target_skill},  
+                batch_size=self.cfg.batch_size,
+                atol=1e-6
+            )
+            print(batch_np[0].shape)
+            print(f"Collected batch for skill {z}: {batch_np[5]}")
+
+            obs_b, action_b, reward_b, discount_b, next_obs_b, meta_b = utils.to_torch(batch_np, self.device)
+            rep_b = self.agent.aug_and_encode(obs_b)  # (B, rep_dim)
             rep_b_dim = rep_b.shape[-1]
 
             # 2) log d(s|z) 추정
@@ -281,53 +272,7 @@ class Workspace:
         out_path = self.save_dir / f"mi_est.txt"
         out_path.write_text(f"{mi_est}\n")
 
-class NumpyReplayBuffer:
-    """
-    Stores (obs, skill_idx) up to capacity.
-    - Pre-allocated numpy arrays (fast, memory efficient).
-    - Circular buffer.
-    """
 
-    def __init__(self, obs_shape, capacity=200_000,
-                 obs_dtype=np.float32, skill_dtype=np.int16):
-        self.capacity = int(capacity)
-        self.obs_shape = tuple(obs_shape)
-
-        self.obs = np.empty((self.capacity, *self.obs_shape), dtype=obs_dtype)
-        self.skill = np.empty((self.capacity,), dtype=skill_dtype)
-
-        self.ptr = 0
-        self.len = 0
-
-    def add(self, obs, skill_idx: int):
-        self.obs[self.ptr] = obs
-        self.skill[self.ptr] = skill_idx
-
-        self.ptr = (self.ptr + 1) % self.capacity
-        self.len = min(self.len + 1, self.capacity)
-
-    def __len__(self):
-        return self.len
-
-    def sample(self, batch_size: int):
-        assert self.len > 0
-        idx = np.random.randint(0, self.len, size=batch_size)
-        return self.obs[idx], self.skill[idx]
-
-    def sample_by_skill(self, skill_idx: int, batch_size: int):
-        assert self.len > 0
-        valid = np.flatnonzero(self.skill[:self.len] == skill_idx)
-        if len(valid) < batch_size:
-            # 부족하면 replacement 허용
-            print(f"Warning: not enough samples for skill {skill_idx} (have {len(valid)}, need {batch_size}), sampling with replacement.")
-            pick = np.random.choice(valid, size=batch_size, replace=True)
-        else:
-            pick = np.random.choice(valid, size=batch_size, replace=False)
-        return self.obs[pick], self.skill[pick]
-
-    def get_all(self):
-        return self.obs[:self.len], self.skill[:self.len]
-    
 @hydra.main(config_path='.', config_name='measure_mi')
 def main(cfg):
     from measure_mi import Workspace as W

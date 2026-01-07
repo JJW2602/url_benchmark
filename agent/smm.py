@@ -140,13 +140,13 @@ class SMMAgent(DDPGAgent):
                  latent_ent_coef, latent_cond_ent_coef, update_encoder,
                  **kwargs):
         self.z_dim = z_dim
-
+        self.skill_dim = skill_dim
         self.state_ent_coef = state_ent_coef
         self.latent_ent_coef = latent_ent_coef
         self.latent_cond_ent_coef = latent_cond_ent_coef
         self.update_encoder = update_encoder
         
-        self.used_skills = np.zeros(self.skill_dim, dtype=np.float32)
+        self.used_skills = np.zeros(self.z_dim, dtype=np.float32)
 
         kwargs["meta_dim"] = self.z_dim
         super().__init__(**kwargs)

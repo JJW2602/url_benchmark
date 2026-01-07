@@ -89,6 +89,7 @@ class APSAgent(DDPGAgent):
                  knn_clip, num_init_steps, lstsq_batch_size, update_encoder, skill_dim,
                  **kwargs):
         self.sf_dim = sf_dim
+        self.skill_dim = skill_dim
         self.update_task_every_step = update_task_every_step
         self.num_init_steps = num_init_steps
         self.lstsq_batch_size = lstsq_batch_size

@@ -1,12 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=URLB(cesd,cic,diayn,aps,smm)_baseline_pretrain
+#SBATCH --job-name=URLB(mimdice)_baseline_pretrain
 #SBATCH --partition=big_suma_rtx3090
 #SBATCH --qos=big_qos
+#SBATCH --exclude=node19
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=9
 #SBATCH --mem=32G
 #SBATCH --time=72:00:00
-#SBATCH --array=0-150:3%50
+#SBATCH --array=0-60:3%20
 #SBATCH --output=/scratch2/james2602/URLB/logs_baseline_pretrain/%A/%j_%a.out
 #SBATCH --error=/scratch2/james2602/URLB/logs_baseline_pretrain/%A/%j_%a.err
 
@@ -24,7 +25,7 @@ JOB_ID="${SLURM_JOB_ID}"
 
 # ===================== 스윕 하이퍼파라미터 =====================
 
-AGENT=("cesd" "cic" "diayn" "aps" "smm")
+AGENT=("mimdice_0" "mimdice_1")
 DOMAIN=("jaco" "quadruped" "walker")
 SEED=(1 2 3 4 5 6 7 8 9 10)
 

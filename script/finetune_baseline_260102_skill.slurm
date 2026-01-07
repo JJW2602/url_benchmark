@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=URLB(cesd,cic,diayn,aps,smm)_baseline_finetune
+#SBATCH --job-name=URLB(smm)_baseline_finetune
 #SBATCH --partition=big_suma_rtx3090
 #SBATCH --qos=big_qos
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=9
 #SBATCH --mem=32G
 #SBATCH --time=72:00:00
-#SBATCH --array=0-600:3%90
+#SBATCH --array=0-120:3%40
 #SBATCH --output=/scratch2/james2602/URLB/logs_baseline_finetune/%A/%j_%a.out
 #SBATCH --error=/scratch2/james2602/URLB/logs_baseline_finetune/%A/%j_%a.err
 
@@ -25,7 +25,7 @@ JOB_ID="${SLURM_JOB_ID}"
 
 # ===================== 스윕 하이퍼파라미터 =====================
 
-AGENT=("cesd" "cic" "diayn" "aps" "smm")
+AGENT=("smm")
 TASK=("jaco_reach_bottom_left" "jaco_reach_bottom_right" "jaco_reach_top_left" "jaco_reach_top_right" "quadruped_stand" "quadruped_run" "quadruped_walk" "quadruped_jump" "walker_stand" "walker_walk" "walker_run" "walker_flip")     
 SEED=(1 2 3 4 5 6 7 8 9 10)
 
@@ -33,7 +33,7 @@ NUM_S=${#SEED[@]}
 NUM_A=${#AGENT[@]}
 NUM_T=${#TASK[@]}
 SNAPSHOT=2000000
-INIT_CRITIC="true"
+INIT_CRITIC="false"
 
 TOTAL_COMB=$(( NUM_S * NUM_A * NUM_T ))
 ARRAY_MAX=$(( TOTAL_COMB - 1 ))

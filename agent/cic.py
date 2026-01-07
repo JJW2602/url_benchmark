@@ -120,8 +120,8 @@ class CICAgent(DDPGAgent):
         kwargs["meta_dim"] = self.skill_dim
         # create actor and critic
         
-        self.used_skills = np.zeros(self.agent.skill_dim, dtype=np.float32) # not used
-        
+        self.used_skills = np.zeros(self.skill_dim, dtype=np.float32) # not used
+
         super().__init__(**kwargs)
         # create cic first
         self.cic = CIC(self.obs_dim - skill_dim, skill_dim,

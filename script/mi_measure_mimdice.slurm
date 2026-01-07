@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name=measure_mi_mimdice
-#SBATCH --partition=big_suma_rtx3090
-#SBATCH --qos=big_qos
+#SBATCH --partition=base_suma_rtx3090
+#SBATCH --qos=base_qos
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=9
 #SBATCH --mem=32G
 #SBATCH --time=72:00:00
-#SBATCH --array=0-600:3%90
+#SBATCH --array=0-60:3%20
 #SBATCH --output=/scratch2/james2602/URLB/logs_mi_measure_results/%A/%j_%a.out
 #SBATCH --error=/scratch2/james2602/URLB/logs_mi_measure_results/%A/%j_%a.err
 
@@ -24,18 +24,25 @@ JOB_ID="${SLURM_JOB_ID}"
 
 # ===================== 스윕 하이퍼파라미터 =====================
 
-AGENT=("mimdice")
+AGENT=("MIM_DICE_GRID")
 DOMAIN=("jaco" "quadruped" "walker")
 SEED=(1 2 3 4 5 6 7 8 9 10)
-SNAPSHOT_TS=(100000 200000 300000 400000 500000 600000 700000 800000 900000 1000000 1100000 1200000 1300000 1400000 1500000 1600000 1700000 1800000 1900000 2000000)
+SNAPSHOT_TS=(2000000)
+HP=(0 1)
+SF_DIM=(64 64)
+DS_LR=(0.3 0.4) 
+PHI_LR=(0.2 0.3)
+ALPHA=(0.1 0.05)
 
-NUM_H=${#HP[@]}
+#SNAPSHOT_TS=(100000 200000 300000 400000 500000 600000 700000 800000 900000 1000000 1100000 1200000 1300000 1400000 1500000 1600000 1700000 1800000 1900000 2000000)
+
 NUM_S=${#SEED[@]}
 NUM_A=${#AGENT[@]}
 NUM_D=${#DOMAIN[@]}
 NUM_SNAP=${#SNAPSHOT_TS[@]}
+NUM_HP=${#HP[@]}
 
-TOTAL_COMB=$(( * NUM_S * NUM_A * NUM_D * NUM_SNAP))
+TOTAL_COMB=$(( NUM_HP * NUM_S * NUM_A * NUM_D * NUM_SNAP))
 ARRAY_MAX=$(( TOTAL_COMB - 1 ))
 
 # ENV
@@ -114,19 +121,26 @@ setup_for_index () {
   local snap_stride=$((s_stride * NUM_S))
   local a_stride=$((snap_stride * NUM_SNAP))
   local d_stride=$((a_stride * NUM_A))
-  
+  local hp_stride=$((d_stride * NUM_D))
+
   SIDX=$(( (IDX / s_stride) % NUM_S ))
   SNAPIDX=$(( (IDX / snap_stride) % NUM_SNAP ))
   AIDX=$(( (IDX / a_stride) % NUM_A ))
   DIDX=$(( (IDX / d_stride) % NUM_D ))
+  HPIDX=$(( (IDX / hp_stride) % NUM_HP ))
 
   seed="${SEED[$SIDX]}"
   snapshot_ts="${SNAPSHOT_TS[$SNAPIDX]}"
   agent="${AGENT[$AIDX]}"
   domain="${DOMAIN[$DIDX]}"
+  hp="${HP[$HPIDX]}" 
+  sf_dim="${SF_DIM[$HPIDX]}" 
+  ds_lr="${DS_LR[$HPIDX]}" 
+  phi_lr="${PHI_LR[$HPIDX]}" 
+  alpha="${ALPHA[$HPIDX]}" 
 
   RUN_TAG="${JOB_ID}_${IDX}"
-  echo "[${RUN_TAG}] seed=${seed}, agent=${agent}, domain=${domain}, snapshot_ts=${snapshot_ts}"
+  echo "[${RUN_TAG}], seed=${seed}, agent=${agent}, domain=${domain}, snapshot_ts=${snapshot_ts}"
 }
 
 run_one () {
@@ -149,12 +163,18 @@ run_one () {
 
     exec python measure_mi.py \
       agent=${agent} \
+      hp=${hp} \
+      agent.sf_dim=${sf_dim} \
+      agent.d_s_z_lr=${ds_lr} \
+      agent.phi_lr=${phi_lr} \
+      agent.alpha=${alpha} \
       domain=${domain} \
       seed=${seed} \
       snapshot_ts=${snapshot_ts} \
       reward_free=True \
       obs_type=states \
       action_repeat=1 \
+      snapshot_base_dir="/scratch2/james2602/URLB/outputs_pretrain_1201" \
       hydra.run.dir="${LOG_BASE}"
   ) &
 }

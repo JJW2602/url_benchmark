@@ -3,49 +3,49 @@ defaults:
   - override hydra/launcher: submitit_local
 
 # mode
-reward_free: false
+reward_free: true
+domain: walker
 # task settings
 task: walker_stand
-domain: walker
 obs_type: states # [states, pixels]
 frame_stack: 3 # only works if obs_type=pixels
 action_repeat: 1 # set to 2 for pixels
 discount: 0.99
-# train settings
-num_train_frames: 100010
+#train settings
 num_seed_frames: 4000
-# eval
-eval_every_frames: 1000
-video_eval_every_frames: 10000
-num_eval_episodes: 10
-# pretrained
-snapshot_ts: 100000
-snapshot_base_dir: /scratch2/james2602/URLB/outputs_pretrain
-#snapshot_test_dir : /home/james2602/URLB/url_benchmark/snapshot_test
-#snapshot_base_dir: /home/james2602/URLB/url_benchmark/outputs_pretrain
+
+#upload snapshots
+snapshot_ts: [100000, 200000, 300000, 400000, 500000, 600000, 700000, 800000, 900000, 1000000, 1100000, 1200000, 1300000, 1400000, 1500000, 1600000, 1700000, 1800000, 1900000, 2000000] # for agents
+snapshot_base_dir: /scratch2/james2602/URLB/outputs_pretrain_260101
+
 # replay buffer
 replay_buffer_size: 1000000
 replay_buffer_num_workers: 4
 batch_size: ${agent.batch_size}
 nstep: ${agent.nstep}
 update_encoder: false # can be either true or false depending if we want to fine-tune encoder
+num_collect_episodes: 2
+num_mi_batches: 100 # for knn sample batch size
+
 # misc
 seed: 1
 device: cuda
 save_video: true
 save_train_video: false
 use_tb: false
+
 # wandb settings
 use_wandb: false
 wandb_project: url_benchmark
+wandb_mode: offline
 # experiment
 experiment: exp
-#fintuning mimdice
-hp: 0
+
 
 hydra:
   run:
-    dir: scratch2/james2602/URLB/outputs_finetune/${task}/${agent.name}/snapshot_${snapshot_ts}/seed_${seed}/sf_dim_${agent.sf_dim}
+    dir: home/james2602/
+    #scratch2/james2602/URLB/outputs_finetune/${task}/${agent.name}/snapshot_${snapshot_ts}/seed_${seed}/alpha_${agent.alpha}//sf_dim_${agent.sf_dim}
   sweep:
     dir: ./exp_sweep/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${experiment}
     subdir: ${hydra.job.num}

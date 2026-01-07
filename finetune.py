@@ -5,7 +5,8 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 import os
 
 os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
-os.environ['MUJOCO_GL'] = 'egl'
+os.environ["MUJOCO_GL"] = "egl"
+
 
 from pathlib import Path
 
@@ -297,10 +298,14 @@ class Workspace:
 
     def load_snapshot(self):
         snapshot_base_dir = Path(self.cfg.snapshot_base_dir)
-        snapshot_dir = snapshot_base_dir / self.domain / self.cfg.agent.name
+        if self.cfg.agent.name=="MIM_DICE_GRID":
+            snapshot_dir = snapshot_base_dir / self.domain / self.cfg.agent.name / str(self.cfg.hp)
+        else:
+            snapshot_dir = snapshot_base_dir / self.domain / self.cfg.agent.name
 
         def try_load(seed):
             snapshot = snapshot_dir / f'seed_{seed}' / 'snapshot' / f'snapshot_{self.cfg.snapshot_ts}.pt'
+            print(f"snapshot dir:{snapshot}")
             if not snapshot.exists():
                 return None
             with snapshot.open('rb') as f:

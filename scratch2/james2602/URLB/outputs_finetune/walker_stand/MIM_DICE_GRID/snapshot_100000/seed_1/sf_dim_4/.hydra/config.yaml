@@ -1,0 +1,60 @@
+agent:
+  _target_: agent.MIM_DICE_GRID.MIMAgent
+  name: MIM_DICE_GRID
+  reward_free: ${reward_free}
+  obs_type: ???
+  obs_shape: ???
+  action_shape: ???
+  device: ${device}
+  use_tb: ${use_tb}
+  use_wandb: ${use_wandb}
+  num_expl_steps: ???
+  lr: 0.0001
+  critic_target_tau: 0.01
+  update_every_steps: 2
+  batch_size: 1024
+  stddev_schedule: 0.2
+  stddev_clip: 0.3
+  update_task_every_step: 50
+  hidden_dim: 1024
+  feature_dim: 50
+  sf_dim: 4
+  skill_dim: 4
+  gamma: 0.99
+  alpha: 0.1
+  d_hidden: 1024
+  num_d_layer: 1
+  d_s_z_lr: 0.1
+  phi_lr: 0.01
+  nstep: 3
+  init_critic: true
+  update_encoder: ${update_encoder}
+  lstsq_batch_size: 4096
+reward_free: false
+task: walker_stand
+domain: walker
+obs_type: states
+frame_stack: 3
+action_repeat: 1
+discount: 0.99
+num_train_frames: 100010
+num_seed_frames: 4000
+eval_every_frames: 1000
+video_eval_every_frames: 10000
+num_eval_episodes: 10
+snapshot_ts: 100000
+snapshot_base_dir: /scratch2/james2602/URLB/outputs_pretrain
+replay_buffer_size: 1000000
+replay_buffer_num_workers: 4
+batch_size: ${agent.batch_size}
+nstep: ${agent.nstep}
+update_encoder: false
+seed: 1
+device: cuda
+save_video: true
+save_train_video: false
+use_tb: false
+use_wandb: false
+wandb_project: url_benchmark
+experiment: exp
+hp: 0
